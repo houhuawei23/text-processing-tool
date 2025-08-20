@@ -75,6 +75,16 @@ class TextProcessorApp {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchTab(e));
         });
+
+        // API配置相关事件
+        document.getElementById('translationService').addEventListener('change', (e) => this.onTranslationServiceChange(e));
+        document.getElementById('saveApiConfigBtn').addEventListener('click', () => this.saveApiConfig());
+        document.getElementById('clearApiConfigBtn').addEventListener('click', () => this.clearApiConfig());
+        document.getElementById('testApiConfigBtn').addEventListener('click', () => this.testApiConfig());
+        document.getElementById('toggleApiKeyBtn').addEventListener('click', () => this.toggleApiKeyVisibility());
+        
+        // API密钥输入框事件
+        document.getElementById('apiKeyInput').addEventListener('focus', (e) => this.onApiKeyInputFocus(e));
     }
 
     /**
@@ -1099,16 +1109,332 @@ ${rulesText}`;
             // 添加默认选项
             serviceSelect.innerHTML = '<option value="">选择翻译服务</option>';
             
-            // 添加可用服务
+            // 添加所有可用服务
             Object.entries(data.services).forEach(([key, service]) => {
                 const option = document.createElement('option');
                 option.value = key;
-                option.textContent = service.name;
+                
+                // 显示服务名称，如果已配置则添加标识
+                let displayName = service.name;
+                if (service.is_user_configured && service.enabled) {
+                    displayName += ' ✓ (已配置)';
+                } else if (service.enabled) {
+                    displayName += ' ✓ (环境变量)';
+                } else {
+                    displayName += ' (未配置)';
+                }
+                
+                option.textContent = displayName;
                 serviceSelect.appendChild(option);
             });
             
         } catch (error) {
             console.error('加载翻译服务失败:', error);
+        }
+    }
+
+    /**
+     * 加载翻译服务的可用模型
+     */
+    async loadTranslationModels(serviceName) {
+        try {
+            const response = await fetch(`/api/translation-services/${serviceName}/models`);
+            const result = await response.json();
+            
+            if (result.error) {
+                console.error('加载模型列表失败:', result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            const modelSelect = document.getElementById('modelSelect');
+            modelSelect.innerHTML = '';
+            
+            if (data.count === 0) {
+                modelSelect.innerHTML = '<option value="">该服务暂无可用模型</option>';
+                return;
+            }
+            
+            // 添加默认选项
+            modelSelect.innerHTML = '<option value="">选择模型</option>';
+            
+            // 添加可用模型
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            
+        } catch (error) {
+            console.error('加载模型列表失败:', error);
+        }
+    }
+
+    /**
+     * 加载翻译服务的当前配置
+     */
+    async loadTranslationServiceConfig(serviceName) {
+        try {
+            const response = await fetch(`/api/translation-services/${serviceName}/config`);
+            const result = await response.json();
+            
+            if (result.error) {
+                console.error('加载服务配置失败:', result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            
+            // 更新API密钥输入框
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            if (data.user_config.has_api_key) {
+                apiKeyInput.value = '••••••••••••••••'; // 显示占位符
+                apiKeyInput.setAttribute('data-has-key', 'true');
+            } else {
+                apiKeyInput.value = '';
+                apiKeyInput.removeAttribute('data-has-key');
+            }
+            
+            // 更新模型选择
+            const modelSelect = document.getElementById('modelSelect');
+            if (data.user_config.model) {
+                // 确保模型选项已加载
+                await this.loadTranslationModels(serviceName);
+                modelSelect.value = data.user_config.model;
+            }
+            
+            // 更新状态显示
+            this.updateApiConfigStatus('info', `当前服务: ${serviceName}`);
+            
+        } catch (error) {
+            console.error('加载服务配置失败:', error);
+        }
+    }
+
+    /**
+     * 保存API配置
+     */
+    async saveApiConfig() {
+        const serviceSelect = document.getElementById('translationService');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const modelSelect = document.getElementById('modelSelect');
+        
+        const serviceName = serviceSelect.value;
+        let apiKey = apiKeyInput.value.trim();
+        const model = modelSelect.value;
+        
+        if (!serviceName) {
+            this.showError('请先选择翻译服务');
+            return;
+        }
+        
+        // 检查API密钥是否有效（不是占位符）
+        if (!apiKey || apiKey === '••••••••••••••••') {
+            this.showError('请输入有效的API密钥');
+            return;
+        }
+        
+        // 验证API密钥格式（基本验证）
+        if (apiKey.length < 10) {
+            this.showError('API密钥长度不足，请检查输入');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/translation-services/${serviceName}/config`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    api_key: apiKey,
+                    model: model
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            
+            // 更新UI状态
+            apiKeyInput.value = '••••••••••••••••';
+            apiKeyInput.setAttribute('data-has-key', 'true');
+            
+            this.updateApiConfigStatus('success', data.message);
+            
+            // 重新加载翻译服务列表以反映新配置
+            await this.loadTranslationServices();
+            
+        } catch (error) {
+            console.error('保存API配置失败:', error);
+            this.showError('保存配置失败，请检查网络连接');
+        }
+    }
+
+    /**
+     * 清除API配置
+     */
+    async clearApiConfig() {
+        const serviceSelect = document.getElementById('translationService');
+        const serviceName = serviceSelect.value;
+        
+        if (!serviceName) {
+            this.showError('请先选择翻译服务');
+            return;
+        }
+        
+        const confirmClear = confirm(`确定要清除 ${serviceName} 的API配置吗？`);
+        if (!confirmClear) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/translation-services/${serviceName}/config`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            
+            // 清除UI状态
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const modelSelect = document.getElementById('modelSelect');
+            
+            apiKeyInput.value = '';
+            apiKeyInput.removeAttribute('data-has-key');
+            modelSelect.value = '';
+            
+            this.updateApiConfigStatus('info', data.message);
+            
+            // 重新加载翻译服务列表
+            await this.loadTranslationServices();
+            
+        } catch (error) {
+            console.error('清除API配置失败:', error);
+            this.showError('清除配置失败，请检查网络连接');
+        }
+    }
+
+    /**
+     * 测试API连接
+     */
+    async testApiConfig() {
+        const serviceSelect = document.getElementById('translationService');
+        const serviceName = serviceSelect.value;
+        
+        if (!serviceName) {
+            this.showError('请先选择翻译服务');
+            return;
+        }
+        
+        this.updateApiConfigStatus('info', '正在测试连接...');
+        
+        try {
+            // 使用一个简单的测试文本进行翻译测试
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: 'Hello',
+                    prompt: '请将以下文本翻译成中文：',
+                    service_name: serviceName
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.updateApiConfigStatus('error', `连接测试失败: ${result.error}`);
+                return;
+            }
+            
+            this.updateApiConfigStatus('success', '连接测试成功！API配置正常。');
+            
+        } catch (error) {
+            console.error('API连接测试失败:', error);
+            this.updateApiConfigStatus('error', '连接测试失败，请检查API配置');
+        }
+    }
+
+    /**
+     * 更新API配置状态显示
+     */
+    updateApiConfigStatus(type, message) {
+        const statusElement = document.getElementById('apiConfigStatus');
+        statusElement.className = `api-config-status ${type}`;
+        statusElement.textContent = message;
+    }
+
+    /**
+     * 切换API密钥显示/隐藏
+     */
+    toggleApiKeyVisibility() {
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const toggleBtn = document.getElementById('toggleApiKeyBtn');
+        const icon = toggleBtn.querySelector('i');
+        
+        if (apiKeyInput.type === 'password') {
+            apiKeyInput.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+            toggleBtn.title = '隐藏API密钥';
+        } else {
+            apiKeyInput.type = 'password';
+            icon.className = 'fas fa-eye';
+            toggleBtn.title = '显示API密钥';
+        }
+    }
+
+    /**
+     * 翻译服务选择变化时的处理
+     */
+    async onTranslationServiceChange(event) {
+        const serviceName = event.target.value;
+        
+        if (!serviceName) {
+            // 清除API配置区域
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const modelSelect = document.getElementById('modelSelect');
+            const statusElement = document.getElementById('apiConfigStatus');
+            
+            apiKeyInput.value = '';
+            apiKeyInput.removeAttribute('data-has-key');
+            modelSelect.innerHTML = '<option value="">请先选择翻译服务</option>';
+            statusElement.className = 'api-config-status';
+            statusElement.textContent = '';
+            return;
+        }
+        
+        // 加载该服务的模型列表
+        await this.loadTranslationModels(serviceName);
+        
+        // 加载该服务的当前配置
+        await this.loadTranslationServiceConfig(serviceName);
+    }
+
+    /**
+     * API密钥输入框获得焦点时的处理
+     */
+    onApiKeyInputFocus(event) {
+        const apiKeyInput = event.target;
+        
+        // 如果当前显示的是占位符，清空输入框
+        if (apiKeyInput.value === '••••••••••••••••') {
+            apiKeyInput.value = '';
+            apiKeyInput.removeAttribute('data-has-key');
         }
     }
 

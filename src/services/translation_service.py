@@ -267,6 +267,23 @@ class TranslationService:
         """
         config = TranslationConfig.get_service_config(service_name)
         
+        # Check if API key is valid
+        api_key = config.get('api_key', '')
+        
+        # Debug logging
+        from flask import current_app
+        current_app.logger.info(f"DEBUG: DeepSeek service config: {config}")
+        current_app.logger.info(f"DEBUG: DeepSeek API key length: {len(api_key) if api_key else 0}")
+        current_app.logger.info(f"DEBUG: DeepSeek API key starts with: {api_key[:10] if api_key else 'None'}")
+        
+        if not api_key or api_key == '••••••••••••••••':
+            return {
+                'error': 'API key not configured or invalid. Please configure your API key in the translation settings.',
+                'translated_text': '',
+                'service_used': service_name,
+                'prompt_used': prompt
+            }
+        
         # Build complete prompt
         full_prompt = f"{prompt}\n\nText to translate:\n```{text}```"
         
@@ -287,7 +304,7 @@ class TranslationService:
         }
         
         headers = {
-            "Authorization": f"Bearer {config['api_key']}"
+            "Authorization": f"Bearer {api_key}"
         }
         
         response = self.session.post(
@@ -308,12 +325,31 @@ class TranslationService:
                 'error': None
             }
         else:
-            return {
-                'error': f'DeepSeek API error: {response.status_code} - {response.text}',
-                'translated_text': '',
-                'service_used': service_name,
-                'prompt_used': prompt
-            }
+            # Parse error response to provide better error message
+            try:
+                error_data = response.json()
+                error_message = error_data.get('error', {}).get('message', 'Unknown error')
+                if 'Authentication Fails' in error_message:
+                    return {
+                        'error': 'API密钥无效或已过期。请检查您的DeepSeek API密钥是否正确，并确保有足够的余额。',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+                else:
+                    return {
+                        'error': f'DeepSeek API错误: {error_message}',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+            except:
+                return {
+                    'error': f'DeepSeek API错误: {response.status_code} - {response.text}',
+                    'translated_text': '',
+                    'service_used': service_name,
+                    'prompt_used': prompt
+                }
     
     def _translate_with_openai(self, text: str, prompt: str, service_name: str, timeout: int) -> Dict[str, Any]:
         """
@@ -329,6 +365,23 @@ class TranslationService:
             Translation result
         """
         config = TranslationConfig.get_service_config(service_name)
+        
+        # Check if API key is valid
+        api_key = config.get('api_key', '')
+        
+        # Debug logging
+        from flask import current_app
+        current_app.logger.info(f"DEBUG: OpenAI service config: {config}")
+        current_app.logger.info(f"DEBUG: OpenAI API key length: {len(api_key) if api_key else 0}")
+        current_app.logger.info(f"DEBUG: OpenAI API key starts with: {api_key[:10] if api_key else 'None'}")
+        
+        if not api_key or api_key == '••••••••••••••••':
+            return {
+                'error': 'API key not configured or invalid. Please configure your API key in the translation settings.',
+                'translated_text': '',
+                'service_used': service_name,
+                'prompt_used': prompt
+            }
         
         # Build complete prompt
         full_prompt = f"{prompt}\n\nText to translate:\n{text}"
@@ -350,7 +403,7 @@ class TranslationService:
         }
         
         headers = {
-            "Authorization": f"Bearer {config['api_key']}"
+            "Authorization": f"Bearer {api_key}"
         }
         
         response = self.session.post(
@@ -371,12 +424,31 @@ class TranslationService:
                 'error': None
             }
         else:
-            return {
-                'error': f'OpenAI API error: {response.status_code} - {response.text}',
-                'translated_text': '',
-                'service_used': service_name,
-                'prompt_used': prompt
-            }
+            # Parse error response to provide better error message
+            try:
+                error_data = response.json()
+                error_message = error_data.get('error', {}).get('message', 'Unknown error')
+                if 'Authentication Fails' in error_message or 'invalid_api_key' in error_message:
+                    return {
+                        'error': 'API密钥无效或已过期。请检查您的OpenAI API密钥是否正确，并确保有足够的余额。',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+                else:
+                    return {
+                        'error': f'OpenAI API错误: {error_message}',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+            except:
+                return {
+                    'error': f'OpenAI API错误: {response.status_code} - {response.text}',
+                    'translated_text': '',
+                    'service_used': service_name,
+                    'prompt_used': prompt
+                }
     
     def get_available_services(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -385,7 +457,7 @@ class TranslationService:
         Returns:
             Dictionary of available services
         """
-        return TranslationConfig.get_enabled_services()
+        return TranslationConfig.get_all_services()
 
 
 # Global translation service instance

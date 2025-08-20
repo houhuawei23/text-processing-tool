@@ -252,6 +252,62 @@
                                             <option value="">加载中...</option>
                                         </select>
                                     </div>
+                                    
+                                    <!-- API配置区域 -->
+                                    <div class="api-config-section">
+                                        <h4><i class="fas fa-key"></i> API 配置</h4>
+                                        <div class="api-config-content">
+                                            <div class="api-config-item">
+                                                <label for="apiKeyInput">API Key:</label>
+                                                <div class="api-key-input-group">
+                                                    <input
+                                                        type="password"
+                                                        id="apiKeyInput"
+                                                        placeholder="请输入您的API密钥"
+                                                        class="api-key-input"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        id="toggleApiKeyBtn"
+                                                        class="toggle-password-btn"
+                                                        title="显示/隐藏API密钥"
+                                                    >
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="api-config-item">
+                                                <label for="modelSelect">模型选择:</label>
+                                                <select id="modelSelect" class="model-select">
+                                                    <option value="">请先选择翻译服务</option>
+                                                </select>
+                                            </div>
+                                            <div class="api-config-actions">
+                                                <button
+                                                    type="button"
+                                                    id="saveApiConfigBtn"
+                                                    class="btn btn-primary btn-sm"
+                                                >
+                                                    <i class="fas fa-save"></i> 保存配置
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="clearApiConfigBtn"
+                                                    class="btn btn-secondary btn-sm"
+                                                >
+                                                    <i class="fas fa-trash"></i> 清除配置
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="testApiConfigBtn"
+                                                    class="btn btn-info btn-sm"
+                                                >
+                                                    <i class="fas fa-check"></i> 测试连接
+                                                </button>
+                                            </div>
+                                            <div id="apiConfigStatus" class="api-config-status"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

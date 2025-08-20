@@ -145,6 +145,9 @@ def translate_text_api():
         if not prompt:
             return create_error_response('Translation prompt cannot be empty', 400)
         
+        # Debug logging
+        current_app.logger.info(f"DEBUG: Translating with service: {service_name}")
+        
         # Translate text
         result = translation_service.translate_text(text, prompt, service_name)
         
@@ -164,14 +167,153 @@ def translate_text_api():
 def get_translation_services():
     """Get available translation services."""
     try:
-        services = translation_service.get_available_services()
+        from ..config.translation_config import TranslationConfig
+        
+        # Get all services (enabled and disabled)
+        services = TranslationConfig.get_all_services()
+        enabled_count = len([s for s in services.values() if s.get('enabled', False)])
+        
         return create_success_response({
             'services': services,
-            'count': len(services)
+            'count': len(services),
+            'enabled_count': enabled_count
         })
         
     except Exception as e:
         current_app.logger.error(f"Get translation services error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translation-services/<service_name>/models', methods=['GET'])
+def get_translation_models(service_name):
+    """Get available models for a specific translation service."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        models = TranslationConfig.get_available_models_for_service(service_name)
+        return create_success_response({
+            'service_name': service_name,
+            'models': models,
+            'count': len(models)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get translation models error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translation-services/<service_name>/config', methods=['POST'])
+def set_translation_service_config(service_name):
+    """Set user-provided API key and model for a translation service."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract and validate input
+        api_key = data.get('api_key', '').strip()
+        model = data.get('model', '').strip()
+        
+        if not api_key:
+            return create_error_response('API key cannot be empty', 400)
+        
+        # Validate API key format
+        if len(api_key) < 10:
+            return create_error_response('API key is too short', 400)
+
+        # Reject placeholders and keys containing whitespace/newlines (e.g., accidental commands like "python run.py")
+        if api_key == '••••••••••••••••' or any(ch.isspace() for ch in api_key):
+            return create_error_response('Invalid API key format (no spaces or placeholders allowed)', 400)
+        
+        # Validate service name
+        if service_name not in TranslationConfig.get_service_names():
+            return create_error_response(f'Invalid service name: {service_name}', 400)
+        
+        # Validate model if provided
+        if model:
+            available_models = TranslationConfig.get_available_models_for_service(service_name)
+            if model not in available_models:
+                return create_error_response(f'Invalid model: {model}', 400)
+        
+        # Debug logging
+        current_app.logger.info(f"DEBUG: Setting API key for {service_name}, length: {len(api_key)}, starts with: {api_key[:10]}")
+        
+        # Set user configuration
+        TranslationConfig.set_user_config(service_name, api_key, model)
+        
+        return create_success_response({
+            'message': f'Configuration updated for {service_name}',
+            'service_name': service_name,
+            'has_api_key': bool(api_key),
+            'model': model
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Set translation service config error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translation-services/<service_name>/config', methods=['DELETE'])
+def clear_translation_service_config(service_name):
+    """Clear user-provided configuration for a translation service."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate service name
+        if service_name not in TranslationConfig.get_service_names():
+            return create_error_response(f'Invalid service name: {service_name}', 400)
+        
+        # Clear user configuration
+        TranslationConfig.clear_user_config(service_name)
+        
+        return create_success_response({
+            'message': f'Configuration cleared for {service_name}',
+            'service_name': service_name
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Clear translation service config error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translation-services/<service_name>/config', methods=['GET'])
+def get_translation_service_config(service_name):
+    """Get current configuration for a translation service."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate service name
+        if service_name not in TranslationConfig.get_service_names():
+            return create_error_response(f'Invalid service name: {service_name}', 400)
+        
+        # Get configuration
+        config = TranslationConfig.get_service_config(service_name)
+        user_config = TranslationConfig.get_user_config(service_name)
+        available_models = TranslationConfig.get_available_models_for_service(service_name)
+        
+        return create_success_response({
+            'service_name': service_name,
+            'config': {
+                'enabled': config.get('enabled', False),
+                'has_api_key': bool(config.get('api_key')),
+                'model': config.get('model'),
+                'is_user_configured': bool(user_config.get('api_key'))
+            },
+            'available_models': available_models,
+            'user_config': {
+                'has_api_key': bool(user_config.get('api_key')),
+                'model': user_config.get('model')
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get translation service config error: {str(e)}")
         return create_error_response(f'Server error: {str(e)}', 500)
 
 
