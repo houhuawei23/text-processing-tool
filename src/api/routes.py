@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+API Routes Module
+Contains all Flask API route handlers with improved error handling and validation.
+"""
+
+import json
+from datetime import datetime
+from flask import Blueprint, request, jsonify, session, current_app
+from ..core.text_processor import text_processor
+from ..services.translation_service import translation_service
+from ..utils.validators import validate_text_input, validate_regex_rules
+from ..utils.response_helpers import create_success_response, create_error_response
+
+
+# Create API blueprint
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+
+@api_bp.route('/process', methods=['POST'])
+def process_text_api():
+    """
+    Text processing API endpoint.
+    
+    Expected JSON payload:
+    {
+        "text": "text to process",
+        "operations": ["format", "statistics", "analysis"]
+    }
+    """
+    try:
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract and validate input
+        text = data.get('text', '').strip()
+        operations = data.get('operations', None)
+        
+        # Validate text input
+        validation_result = validate_text_input(text)
+        if not validation_result['valid']:
+            return create_error_response(validation_result['error'], 400)
+        
+        # Process text
+        result = text_processor.process_text(text, operations)
+        
+        # Record processing history
+        _record_processing_history(operations or ['format', 'statistics', 'analysis'], len(text))
+        
+        return create_success_response(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Text processing error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/regex', methods=['POST'])
+def regex_process_api():
+    """
+    Regex processing API endpoint.
+    
+    Expected JSON payload:
+    {
+        "text": "text to process",
+        "regex_rules": [["pattern", "replacement"], ...]
+    }
+    """
+    try:
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract and validate input
+        text = data.get('text', '').strip()
+        regex_rules = data.get('regex_rules', [])
+        
+        # Validate text input
+        validation_result = validate_text_input(text)
+        if not validation_result['valid']:
+            return create_error_response(validation_result['error'], 400)
+        
+        # Validate regex rules
+        validation_result = validate_regex_rules(regex_rules)
+        if not validation_result['valid']:
+            return create_error_response(validation_result['error'], 400)
+        
+        # Convert rules format
+        converted_rules = _convert_regex_rules_format(regex_rules)
+        
+        # Process text with regex
+        result = text_processor.process_text_with_regex(text, converted_rules)
+        
+        # Record processing history
+        _record_processing_history(['regex'], len(text), regex_rules_count=len(converted_rules))
+        
+        return create_success_response(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Regex processing error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translate', methods=['POST'])
+def translate_text_api():
+    """
+    Text translation API endpoint.
+    
+    Expected JSON payload:
+    {
+        "text": "text to translate",
+        "prompt": "translation prompt",
+        "service_name": "deepseek"
+    }
+    """
+    try:
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract and validate input
+        text = data.get('text', '').strip()
+        prompt = data.get('prompt', '').strip()
+        service_name = data.get('service_name', None)
+        
+        # Validate text input
+        validation_result = validate_text_input(text)
+        if not validation_result['valid']:
+            return create_error_response(validation_result['error'], 400)
+        
+        # Validate prompt
+        if not prompt:
+            return create_error_response('Translation prompt cannot be empty', 400)
+        
+        # Translate text
+        result = translation_service.translate_text(text, prompt, service_name)
+        
+        # Record processing history
+        _record_processing_history(['translate'], len(text), 
+                                 service_used=result.get('service_used', ''),
+                                 prompt_used=prompt)
+        
+        return create_success_response(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Translation error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/translation-services', methods=['GET'])
+def get_translation_services():
+    """Get available translation services."""
+    try:
+        services = translation_service.get_available_services()
+        return create_success_response({
+            'services': services,
+            'count': len(services)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get translation services error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/clear', methods=['POST'])
+def clear_data():
+    """Clear processing history and session data."""
+    try:
+        # Clear session history
+        if 'processing_history' in session:
+            session.pop('processing_history')
+        
+        # Clear global history
+        text_processor.clear_history()
+        
+        return create_success_response({'message': 'Data cleared successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Clear data error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/history', methods=['GET'])
+def get_history():
+    """Get processing history."""
+    try:
+        # Get global processing history
+        global_history = text_processor.get_processing_history()
+        
+        # Get session history
+        session_history = session.get('processing_history', [])
+        
+        return create_success_response({
+            'global_history': global_history,
+            'session_history': session_history
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get history error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    try:
+        from ..config.app_config import AppConfig
+        
+        return create_success_response({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'version': AppConfig.APP_VERSION,
+            'app_name': AppConfig.APP_NAME
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Health check error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/config', methods=['GET'])
+def get_config():
+    """Get application configuration (non-sensitive)."""
+    try:
+        from ..config.app_config import AppConfig
+        from ..config.translation_config import TranslationConfig
+        
+        config_info = {
+            'app': {
+                'name': AppConfig.APP_NAME,
+                'version': AppConfig.APP_VERSION,
+                'debug': AppConfig.DEBUG,
+                'max_file_size': AppConfig.MAX_FILE_SIZE,
+                'max_text_length': AppConfig.MAX_TEXT_LENGTH,
+                'default_operations': AppConfig.DEFAULT_OPERATIONS
+            },
+            'translation': TranslationConfig.get_config_summary()
+        }
+        
+        return create_success_response(config_info)
+        
+    except Exception as e:
+        current_app.logger.error(f"Get config error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+def _convert_regex_rules_format(regex_rules):
+    """
+    Convert regex rules from various formats to standard tuple format.
+    
+    Args:
+        regex_rules: List of rules in various formats
+        
+    Returns:
+        List of (pattern, replacement) tuples
+    """
+    converted_rules = []
+    
+    for rule in regex_rules:
+        if isinstance(rule, str):
+            # String format: "pattern -> replacement"
+            if " -> " in rule:
+                pattern, replacement = rule.split(" -> ", 1)
+                converted_rules.append((pattern.strip(), replacement.strip()))
+            else:
+                raise ValueError(f'Invalid rule format: {rule}')
+        elif isinstance(rule, (list, tuple)) and len(rule) == 2:
+            # Tuple/list format: (pattern, replacement)
+            converted_rules.append((str(rule[0]), str(rule[1])))
+        else:
+            raise ValueError(f'Invalid rule format: {rule}')
+    
+    return converted_rules
+
+
+def _record_processing_history(operations, text_length, **kwargs):
+    """Record processing operation in session history."""
+    if 'processing_history' not in session:
+        session['processing_history'] = []
+    
+    history_entry = {
+        'timestamp': datetime.now().isoformat(),
+        'text_length': text_length,
+        'operations': operations,
+        **kwargs
+    }
+    
+    session['processing_history'].append(history_entry)
+    
+    # Keep only last 50 entries
+    if len(session['processing_history']) > 50:
+        session['processing_history'] = session['processing_history'][-50:] 

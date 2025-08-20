@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>文本处理工具</title>
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename='css/style.css') }}"
+        />
+        <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+            rel="stylesheet"
+        />
+    </head>
+    <body>
+        <div class="container">
+            <!-- 头部 -->
+            <header class="header">
+                <h3><i class="fas fa-text-width"></i> 文本处理工具</h3>
+                <!-- <p>专业的文本分析和处理平台</p> -->
+            </header>
+
+            <!-- 主要内容区域 -->
+            <main class="main-content">
+                <!-- 文本处理区域 - 输入和输出并列 -->
+                <section class="text-processing-section">
+                    <!-- 控制按钮区域 -->
+                    <div class="controls-header">
+                        <div class="button-group">
+                            <button id="processBtn" class="btn btn-primary">
+                                <i class="fas fa-cogs"></i> 处理文本
+                            </button>
+                            <button id="regexBtn" class="btn btn-info">
+                                <i class="fas fa-magic"></i> 正则匹配与替换
+                            </button>
+                            <button id="translateBtn" class="btn btn-success">
+                                <i class="fas fa-language"></i> 翻译
+                            </button>
+                            <button id="clearBtn" class="btn btn-secondary">
+                                <i class="fas fa-trash"></i> 清空
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-windows-container">
+                        <!-- 输入区域 -->
+                        <div class="input-window">
+                            <div class="section-header">
+                                <h2><i class="fas fa-edit"></i> 输入文本</h2>
+                                <div class="text-counter">
+                                    <span id="charCount">0</span> 字符
+                                </div>
+                            </div>
+
+                            <div class="textarea-container">
+                                <textarea
+                                    id="inputText"
+                                    placeholder="请在此处粘贴或输入要处理的文本..."
+                                    rows="12"
+                                    style="resize: vertical; max-height: 800px; min-height: 200px;"
+                                ></textarea>
+                                <button
+                                    class="copy-btn"
+                                    data-target="inputText"
+                                    title="复制文本"
+                                >
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 可拖动的分隔线 -->
+                        <div class="resize-handle" id="resizeHandle">
+                            <div class="resize-indicator">
+                                <i class="fas fa-grip-lines"></i>
+                            </div>
+                        </div>
+
+                        <!-- 输出区域 -->
+                        <div class="output-window">
+                            <div class="section-header">
+                                <h2>
+                                    <i class="fas fa-chart-bar"></i> 处理结果
+                                </h2>
+                                <div class="view-toggle">
+                                    <button
+                                        class="toggle-btn active"
+                                        data-view="processed"
+                                    >
+                                        处理文本
+                                    </button>
+                                    <button
+                                        class="toggle-btn"
+                                        data-view="statistics"
+                                    >
+                                        统计信息
+                                    </button>
+                                    <button
+                                        class="toggle-btn"
+                                        data-view="analysis"
+                                    >
+                                        文本分析
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="output-container">
+                                <!-- 处理文本视图 -->
+                                <div
+                                    id="processedView"
+                                    class="output-view active"
+                                >
+                                    <div class="text-output">
+                                        <pre id="processedText"></pre>
+                                        <button
+                                            class="copy-btn"
+                                            data-target="processedText"
+                                            title="复制结果"
+                                        >
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 统计信息视图 -->
+                                <div id="statisticsView" class="output-view">
+                                    <div class="statistics-grid">
+                                        <div class="stat-card">
+                                            <h4>基本统计</h4>
+                                            <div id="basicStats"></div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <h4>字符类型</h4>
+                                            <div id="charStats"></div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <h4>词频统计</h4>
+                                            <div id="wordFreq"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 文本分析视图 -->
+                                <div id="analysisView" class="output-view">
+                                    <div class="analysis-grid">
+                                        <div class="analysis-card">
+                                            <h4>可读性分析</h4>
+                                            <div id="readability"></div>
+                                        </div>
+                                        <div class="analysis-card">
+                                            <h4>情感分析</h4>
+                                            <div id="sentiment"></div>
+                                        </div>
+                                        <div class="analysis-card">
+                                            <h4>语言特征</h4>
+                                            <div id="languageFeatures"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 控制区域 -->
+                <section class="controls-section">
+                    <!-- 选项卡导航 -->
+                    <div class="controls-tabs">
+                        <button class="tab-btn active" data-tab="options">
+                            <i class="fas fa-cog"></i> 处理选项
+                        </button>
+                        <button class="tab-btn" data-tab="translation">
+                            <i class="fas fa-language"></i> 翻译设置
+                        </button>
+                        <button class="tab-btn" data-tab="regex">
+                            <i class="fas fa-code"></i> 正则规则
+                        </button>
+                    </div>
+
+                    <!-- 选项卡内容 -->
+                    <div class="tab-content">
+                        <!-- 处理选项选项卡 -->
+                        <div id="optionsTab" class="tab-pane active">
+                            <div class="options-section">
+                                <h3><i class="fas fa-cog"></i> 处理选项</h3>
+                                <div class="options-grid">
+                                    <label class="option-item">
+                                        <input
+                                            type="checkbox"
+                                            id="formatOption"
+                                            checked
+                                        />
+                                        <span class="checkmark"></span>
+                                        文本格式化
+                                    </label>
+                                    <label class="option-item">
+                                        <input
+                                            type="checkbox"
+                                            id="statisticsOption"
+                                            checked
+                                        />
+                                        <span class="checkmark"></span>
+                                        统计信息
+                                    </label>
+                                    <label class="option-item">
+                                        <input
+                                            type="checkbox"
+                                            id="analysisOption"
+                                            checked
+                                        />
+                                        <span class="checkmark"></span>
+                                        文本分析
+                                    </label>
+                                    <label class="option-item">
+                                        <input
+                                            type="checkbox"
+                                            id="regexOption"
+                                        />
+                                        <span class="checkmark"></span>
+                                        正则匹配与替换
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 翻译设置选项卡 -->
+                        <div id="translationTab" class="tab-pane">
+                            <div class="translation-section">
+                                <h3>
+                                    <i class="fas fa-language"></i> 翻译设置
+                                </h3>
+                                <div class="translation-settings">
+                                    <div class="translation-input-group">
+                                        <label for="translationPrompt"
+                                            >翻译提示词:</label
+                                        >
+                                        <textarea
+                                            id="translationPrompt"
+                                            placeholder="请输入翻译提示词，例如：请将以下文本翻译成中文："
+                                            rows="3"
+                                        ></textarea>
+                                    </div>
+                                    <div class="translation-service-group">
+                                        <label for="translationService"
+                                            >翻译服务:</label
+                                        >
+                                        <select
+                                            id="translationService"
+                                            class="service-select"
+                                        >
+                                            <option value="">加载中...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 正则规则选项卡 -->
+                        <div id="regexTab" class="tab-pane">
+                            <!-- 正则规则编写区域 -->
+                            <div class="regex-rules-section">
+                                <div class="section-header">
+                                    <h2>
+                                        <i class="fas fa-code"></i> 正则规则编写
+                                    </h2>
+                                    <div class="text-counter">
+                                        <span id="regexRulesCharCount">0</span>
+                                        字符
+                                    </div>
+                                </div>
+                                <div class="textarea-container">
+                                    <textarea
+                                        id="regexReplaceRules"
+                                        placeholder='请在此处编写正则匹配-替换规则，格式如：&#10;(r"\\\\(|\\\\)", r"$"),&#10;(r"\\*\\*\\*\\*", r"*")'
+                                        rows="8"
+                                    ></textarea>
+                                    <button
+                                        class="copy-btn"
+                                        data-target="regexReplaceRules"
+                                        title="复制规则"
+                                    >
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <div class="parse-rules-section">
+                                    <button
+                                        id="parseRulesBtn"
+                                        class="btn btn-warning"
+                                    >
+                                        <i class="fas fa-magic"></i> 解析规则
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="regex-section">
+                                <div class="regex-section-header">
+                                    <h3>
+                                        <i class="fas fa-code"></i>
+                                        正则匹配与替换规则
+                                    </h3>
+                                    <!-- 导入和导出按钮 -->
+                                    <div class="regex-import-export">
+                                        <button
+                                            id="importRegexRules"
+                                            class="btn btn-sm btn-outline"
+                                        >
+                                            <i class="fas fa-upload"></i>
+                                            导入正则匹配替换规则
+                                        </button>
+                                        <button
+                                            id="exportRegexRules"
+                                            class="btn btn-sm btn-outline"
+                                        >
+                                            <i class="fas fa-download"></i>
+                                            导出正则匹配替换规则
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 隐藏的文件输入元素 -->
+                                <input
+                                    type="file"
+                                    id="regexFileInput"
+                                    accept=".txt,.rules,.json"
+                                    style="display: none"
+                                />
+
+                                <div class="regex-rules-container">
+                                    <div class="regex-rule-input">
+                                        <input type="text" id="regexPattern"
+                                        placeholder="正则表达式模式，例如:
+                                        \"([^\"]+)\"" class="regex-input" />
+                                        <span class="arrow">→</span>
+                                        <input
+                                            type="text"
+                                            id="regexReplacement"
+                                            placeholder="替换内容，例如: '$1'"
+                                            class="regex-input"
+                                        />
+                                        <button
+                                            id="addRegexRule"
+                                            class="btn btn-sm btn-success"
+                                        >
+                                            <i class="fas fa-plus"></i> 添加规则
+                                        </button>
+                                    </div>
+                                    <div
+                                        style="
+                                            color: #888;
+                                            font-size: 0.95em;
+                                            margin: 6px 0 10px 0;
+                                        "
+                                    >
+                                        示例：将 hh "hello" 替换为 hh 'hello'
+                                        &nbsp;|&nbsp; 匹配模式:
+                                        <code>\"([^\"]+)\"</code> &nbsp;
+                                        替换内容:
+                                        <code>'$1'</code>
+                                    </div>
+
+                                    <!-- 可调整大小的规则列表窗口 -->
+                                    <div class="regex-rules-window">
+                                        <div class="regex-rules-header">
+                                            <h4>规则列表</h4>
+                                            <div class="regex-rules-controls">
+                                                <button
+                                                    class="btn btn-sm btn-outline"
+                                                    id="expandRegexRules"
+                                                >
+                                                    <i
+                                                        class="fas fa-expand"
+                                                    ></i>
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm btn-outline"
+                                                    id="collapseRegexRules"
+                                                >
+                                                    <i
+                                                        class="fas fa-compress"
+                                                    ></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="regex-rules-content"
+                                            id="regexRulesList"
+                                        >
+                                            <!-- 规则列表将在这里动态生成 -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- 加载指示器 -->
+            <div id="loadingOverlay" class="loading-overlay">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在处理文本...</p>
+                </div>
+            </div>
+
+            <!-- 错误提示 -->
+            <div id="errorToast" class="toast error-toast">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorMessage"></span>
+                <button class="toast-close">&times;</button>
+            </div>
+
+            <!-- 成功提示 -->
+            <div id="successToast" class="toast success-toast">
+                <i class="fas fa-check-circle"></i>
+                <span id="successMessage"></span>
+                <button class="toast-close">&times;</button>
+            </div>
+        </div>
+
+        <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    </body>
+</html>
