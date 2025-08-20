@@ -399,6 +399,269 @@ def get_config():
         return create_error_response(f'Server error: {str(e)}', 500)
 
 
+# Prompt management endpoints
+@api_bp.route('/prompts', methods=['GET'])
+def get_prompts():
+    """Get all available prompts (default + user prompts)."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        all_prompts = TranslationConfig.get_all_prompts()
+        user_prompts = TranslationConfig.get_user_prompts()
+        
+        return create_success_response({
+            'prompts': all_prompts,
+            'total_count': len(all_prompts),
+            'user_count': len(user_prompts),
+            'default_count': len(all_prompts) - len(user_prompts)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get prompts error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts', methods=['POST'])
+def add_prompt():
+    """Add a new user prompt."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract and validate input
+        name = data.get('name', '').strip()
+        content = data.get('content', '').strip()
+        category = data.get('category', 'custom').strip()
+        
+        if not name:
+            return create_error_response('Prompt name cannot be empty', 400)
+        
+        if not content:
+            return create_error_response('Prompt content cannot be empty', 400)
+        
+        # Check for duplicate names
+        existing_prompts = TranslationConfig.get_user_prompts()
+        if any(p['name'] == name for p in existing_prompts):
+            return create_error_response(f'Prompt with name "{name}" already exists', 400)
+        
+        # Add the prompt
+        new_prompt = TranslationConfig.add_user_prompt(name, content, category)
+        
+        return create_success_response({
+            'message': 'Prompt added successfully',
+            'prompt': new_prompt
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Add prompt error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/<prompt_id>', methods=['PUT'])
+def update_prompt(prompt_id):
+    """Update an existing user prompt."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract input
+        name = data.get('name', '').strip()
+        content = data.get('content', '').strip()
+        category = data.get('category', '').strip()
+        
+        # Validate that at least one field is provided
+        if not any([name, content, category]):
+            return create_error_response('At least one field must be provided for update', 400)
+        
+        # Check if prompt exists and is user-created
+        prompt = TranslationConfig.get_prompt_by_id(prompt_id)
+        if not prompt:
+            return create_error_response(f'Prompt with ID {prompt_id} not found', 404)
+        
+        if not prompt.get('is_user_created'):
+            return create_error_response('Cannot modify default prompts', 403)
+        
+        # Check for duplicate names if name is being updated
+        if name:
+            existing_prompts = TranslationConfig.get_user_prompts()
+            if any(p['name'] == name and p['id'] != prompt_id for p in existing_prompts):
+                return create_error_response(f'Prompt with name "{name}" already exists', 400)
+        
+        # Update the prompt
+        updated_prompt = TranslationConfig.update_user_prompt(
+            prompt_id, 
+            name if name else None,
+            content if content else None,
+            category if category else None
+        )
+        
+        return create_success_response({
+            'message': 'Prompt updated successfully',
+            'prompt': updated_prompt
+        })
+        
+    except ValueError as e:
+        return create_error_response(str(e), 404)
+    except Exception as e:
+        current_app.logger.error(f"Update prompt error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/<prompt_id>', methods=['DELETE'])
+def delete_prompt(prompt_id):
+    """Delete a user prompt."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Check if prompt exists and is user-created
+        prompt = TranslationConfig.get_prompt_by_id(prompt_id)
+        if not prompt:
+            return create_error_response(f'Prompt with ID {prompt_id} not found', 404)
+        
+        if not prompt.get('is_user_created'):
+            return create_error_response('Cannot delete default prompts', 403)
+        
+        # Delete the prompt
+        success = TranslationConfig.delete_user_prompt(prompt_id)
+        
+        if success:
+            return create_success_response({
+                'message': 'Prompt deleted successfully',
+                'prompt_id': prompt_id
+            })
+        else:
+            return create_error_response(f'Failed to delete prompt {prompt_id}', 500)
+        
+    except Exception as e:
+        current_app.logger.error(f"Delete prompt error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/<prompt_id>', methods=['GET'])
+def get_prompt(prompt_id):
+    """Get a specific prompt by ID."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        prompt = TranslationConfig.get_prompt_by_id(prompt_id)
+        
+        if not prompt:
+            return create_error_response(f'Prompt with ID {prompt_id} not found', 404)
+        
+        return create_success_response({
+            'prompt': prompt
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get prompt error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/category/<category>', methods=['GET'])
+def get_prompts_by_category(category):
+    """Get prompts by category."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        prompts = TranslationConfig.get_prompts_by_category(category)
+        
+        return create_success_response({
+            'category': category,
+            'prompts': prompts,
+            'count': len(prompts)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get prompts by category error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/export', methods=['GET'])
+def export_prompts():
+    """Export all user prompts."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        export_data = TranslationConfig.export_prompts()
+        
+        return create_success_response({
+            'export_data': export_data,
+            'format': 'json'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Export prompts error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/import', methods=['POST'])
+def import_prompts():
+    """Import prompts from JSON data."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        # Validate request
+        if not request.is_json:
+            return create_error_response('Request must be JSON', 400)
+        
+        data = request.get_json()
+        if not data:
+            return create_error_response('Invalid request data', 400)
+        
+        # Extract JSON data
+        json_data = data.get('json_data', '')
+        if not json_data:
+            return create_error_response('JSON data cannot be empty', 400)
+        
+        # Import prompts
+        result = TranslationConfig.import_prompts(json_data)
+        
+        if result['success']:
+            return create_success_response({
+                'message': 'Prompts imported successfully',
+                'imported_count': result['imported_count'],
+                'skipped_count': result['skipped_count'],
+                'errors': result.get('errors', [])
+            })
+        else:
+            return create_error_response(result['error'], 400)
+        
+    except Exception as e:
+        current_app.logger.error(f"Import prompts error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/prompts/clear', methods=['DELETE'])
+def clear_user_prompts():
+    """Clear all user prompts."""
+    try:
+        from ..config.translation_config import TranslationConfig
+        
+        TranslationConfig.clear_all_user_prompts()
+        
+        return create_success_response({
+            'message': 'All user prompts cleared successfully'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Clear prompts error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
 def _convert_regex_rules_format(regex_rules):
     """
     Convert regex rules from various formats to standard tuple format.

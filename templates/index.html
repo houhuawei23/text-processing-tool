@@ -235,12 +235,97 @@
                                         <label for="translationPrompt"
                                             >翻译提示词:</label
                                         >
-                                        <textarea
-                                            id="translationPrompt"
-                                            placeholder="请输入翻译提示词，例如：请将以下文本翻译成中文："
-                                            rows="3"
-                                        ></textarea>
+                                        <div class="prompt-input-container">
+                                            <textarea
+                                                id="translationPrompt"
+                                                placeholder="请输入翻译提示词，例如：请将以下文本翻译成中文："
+                                                rows="3"
+                                            ></textarea>
+                                            <div class="prompt-controls">
+                                                <button
+                                                    type="button"
+                                                    id="selectPromptBtn"
+                                                    class="btn btn-sm btn-outline"
+                                                    title="选择提示词"
+                                                >
+                                                    <i class="fas fa-list"></i> 选择提示词
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="savePromptBtn"
+                                                    class="btn btn-sm btn-outline"
+                                                    title="保存当前提示词"
+                                                >
+                                                    <i class="fas fa-save"></i> 保存
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
+                                    
+                                    <!-- 提示词管理区域 -->
+                                    <div class="prompt-management-section">
+                                        <h4><i class="fas fa-bookmark"></i> 提示词管理</h4>
+                                        <div class="prompt-management-content">
+                                            <div class="prompt-actions">
+                                                <button
+                                                    type="button"
+                                                    id="addPromptBtn"
+                                                    class="btn btn-sm btn-primary"
+                                                >
+                                                    <i class="fas fa-plus"></i> 添加提示词
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="exportPromptsBtn"
+                                                    class="btn btn-sm btn-outline"
+                                                >
+                                                    <i class="fas fa-download"></i> 导出
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="importPromptsBtn"
+                                                    class="btn btn-sm btn-outline"
+                                                >
+                                                    <i class="fas fa-upload"></i> 导入
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    id="clearPromptsBtn"
+                                                    class="btn btn-sm btn-outline"
+                                                >
+                                                    <i class="fas fa-trash"></i> 清空
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- 提示词列表 -->
+                                            <div class="prompt-list-container">
+                                                <div class="prompt-list-header">
+                                                    <h5>我的提示词</h5>
+                                                    <div class="prompt-filter">
+                                                        <select id="promptCategoryFilter" class="prompt-filter-select">
+                                                            <option value="">所有分类</option>
+                                                            <option value="translation">翻译</option>
+                                                            <option value="polish">润色</option>
+                                                            <option value="summary">总结</option>
+                                                            <option value="custom">自定义</option>
+                                                            <option value="imported">导入</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="prompt-list" id="promptList">
+                                                    <!-- 提示词列表将在这里动态生成 -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 隐藏的文件输入元素 -->
+                                    <input
+                                        type="file"
+                                        id="promptFileInput"
+                                        accept=".json,.txt"
+                                        style="display: none"
+                                    />
                                     <div class="translation-service-group">
                                         <label for="translationService"
                                             >翻译服务:</label
@@ -472,6 +557,68 @@
                 <i class="fas fa-check-circle"></i>
                 <span id="successMessage"></span>
                 <button class="toast-close">&times;</button>
+            </div>
+            
+            <!-- 提示词选择模态框 -->
+            <div id="promptSelectModal" class="prompt-modal">
+                <div class="prompt-modal-content">
+                    <div class="prompt-modal-header">
+                        <h3><i class="fas fa-list"></i> 选择提示词</h3>
+                        <button class="prompt-modal-close" onclick="app.closePromptModal()">&times;</button>
+                    </div>
+                    <div class="prompt-modal-body">
+                        <div class="prompt-form-group">
+                            <label for="promptSelectFilter">筛选分类:</label>
+                            <select id="promptSelectFilter" class="prompt-filter-select">
+                                <option value="">所有分类</option>
+                                <option value="translation">翻译</option>
+                                <option value="polish">润色</option>
+                                <option value="summary">总结</option>
+                                <option value="custom">自定义</option>
+                                <option value="imported">导入</option>
+                            </select>
+                        </div>
+                        <div class="prompt-select-list" id="promptSelectList">
+                            <!-- 提示词选择列表将在这里动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 添加/编辑提示词模态框 -->
+            <div id="promptEditModal" class="prompt-modal">
+                <div class="prompt-modal-content">
+                    <div class="prompt-modal-header">
+                        <h3 id="promptEditModalTitle"><i class="fas fa-plus"></i> 添加提示词</h3>
+                        <button class="prompt-modal-close" onclick="app.closePromptModal()">&times;</button>
+                    </div>
+                    <div class="prompt-modal-body">
+                        <form id="promptEditForm">
+                            <div class="prompt-form-group">
+                                <label for="promptNameInput">提示词名称:</label>
+                                <input type="text" id="promptNameInput" placeholder="请输入提示词名称" required>
+                            </div>
+                            <div class="prompt-form-group">
+                                <label for="promptContentInput">提示词内容:</label>
+                                <textarea id="promptContentInput" placeholder="请输入提示词内容" required></textarea>
+                            </div>
+                            <div class="prompt-form-group">
+                                <label for="promptCategoryInput">分类:</label>
+                                <select id="promptCategoryInput">
+                                    <option value="translation">翻译</option>
+                                    <option value="polish">润色</option>
+                                    <option value="summary">总结</option>
+                                    <option value="custom" selected>自定义</option>
+                                    <option value="imported">导入</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="prompt-modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="app.closePromptModal()">取消</button>
+                        <button type="button" class="btn btn-primary" id="promptSaveBtn">保存</button>
+                    </div>
+                </div>
             </div>
         </div>
 

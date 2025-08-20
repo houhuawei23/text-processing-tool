@@ -85,6 +85,21 @@ class TextProcessorApp {
         
         // API密钥输入框事件
         document.getElementById('apiKeyInput').addEventListener('focus', (e) => this.onApiKeyInputFocus(e));
+        
+        // 提示词管理相关事件
+        document.getElementById('selectPromptBtn').addEventListener('click', () => this.showPromptSelectModal());
+        document.getElementById('savePromptBtn').addEventListener('click', () => this.showPromptEditModal());
+        document.getElementById('addPromptBtn').addEventListener('click', () => this.showPromptEditModal());
+        document.getElementById('exportPromptsBtn').addEventListener('click', () => this.exportPrompts());
+        document.getElementById('importPromptsBtn').addEventListener('click', () => this.importPrompts());
+        document.getElementById('clearPromptsBtn').addEventListener('click', () => this.clearPrompts());
+        document.getElementById('promptSaveBtn').addEventListener('click', () => this.savePrompt());
+        document.getElementById('promptCategoryFilter').addEventListener('change', () => this.filterPrompts());
+        document.getElementById('promptSelectFilter').addEventListener('change', () => this.filterPromptSelect());
+        document.getElementById('promptFileInput').addEventListener('change', (e) => this.handlePromptFileImport(e));
+        
+        // 初始化提示词管理
+        this.loadPrompts();
     }
 
     /**
@@ -1770,6 +1785,439 @@ ${rulesText}`;
         if (savedTab) {
             this.switchToTab(savedTab);
         }
+    }
+
+    // ==================== 提示词管理方法 ====================
+
+    /**
+     * 加载提示词列表
+     */
+    async loadPrompts() {
+        try {
+            const response = await fetch('/api/prompts');
+            const result = await response.json();
+            
+            if (result.error) {
+                console.error('加载提示词失败:', result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            this.prompts = data.prompts || [];
+            this.updatePromptList();
+            
+        } catch (error) {
+            console.error('加载提示词失败:', error);
+        }
+    }
+
+    /**
+     * 更新提示词列表显示
+     */
+    updatePromptList() {
+        const promptList = document.getElementById('promptList');
+        const categoryFilter = document.getElementById('promptCategoryFilter').value;
+        
+        // 过滤提示词
+        let filteredPrompts = this.prompts;
+        if (categoryFilter) {
+            filteredPrompts = this.prompts.filter(prompt => prompt.category === categoryFilter);
+        }
+        
+        if (filteredPrompts.length === 0) {
+            promptList.innerHTML = '<div class="prompt-item"><div class="prompt-item-info"><div class="prompt-item-content">暂无提示词</div></div></div>';
+            return;
+        }
+        
+        promptList.innerHTML = filteredPrompts.map(prompt => this.createPromptItemHTML(prompt)).join('');
+        
+        // 绑定提示词项的事件
+        this.bindPromptItemEvents();
+    }
+
+    /**
+     * 创建提示词项HTML
+     */
+    createPromptItemHTML(prompt) {
+        const isUserCreated = prompt.is_user_created || false;
+        const actionsHTML = isUserCreated ? 
+            `<div class="prompt-item-actions">
+                <button class="btn btn-sm btn-use" data-prompt-id="${prompt.id}" title="使用此提示词">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="btn btn-sm btn-edit" data-prompt-id="${prompt.id}" title="编辑">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-delete" data-prompt-id="${prompt.id}" title="删除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>` :
+            `<div class="prompt-item-actions">
+                <button class="btn btn-sm btn-use" data-prompt-id="${prompt.id}" title="使用此提示词">
+                    <i class="fas fa-play"></i>
+                </button>
+            </div>`;
+        
+        return `
+            <div class="prompt-item" data-prompt-id="${prompt.id}">
+                <div class="prompt-item-info">
+                    <div class="prompt-item-name">${prompt.name}</div>
+                    <div class="prompt-item-content">${prompt.content}</div>
+                    <span class="prompt-item-category">${this.getCategoryDisplayName(prompt.category)}</span>
+                </div>
+                ${actionsHTML}
+            </div>
+        `;
+    }
+
+    /**
+     * 绑定提示词项事件
+     */
+    bindPromptItemEvents() {
+        // 使用提示词
+        document.querySelectorAll('.btn-use').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.getAttribute('data-prompt-id');
+                this.usePrompt(promptId);
+            });
+        });
+        
+        // 编辑提示词
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.getAttribute('data-prompt-id');
+                this.editPrompt(promptId);
+            });
+        });
+        
+        // 删除提示词
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.getAttribute('data-prompt-id');
+                this.deletePrompt(promptId);
+            });
+        });
+    }
+
+    /**
+     * 使用提示词
+     */
+    usePrompt(promptId) {
+        const prompt = this.prompts.find(p => p.id === promptId);
+        if (prompt) {
+            document.getElementById('translationPrompt').value = prompt.content;
+            this.showSuccess(`已选择提示词: ${prompt.name}`);
+        }
+    }
+
+    /**
+     * 编辑提示词
+     */
+    editPrompt(promptId) {
+        const prompt = this.prompts.find(p => p.id === promptId);
+        if (prompt) {
+            this.currentEditingPromptId = promptId;
+            document.getElementById('promptEditModalTitle').innerHTML = '<i class="fas fa-edit"></i> 编辑提示词';
+            document.getElementById('promptNameInput').value = prompt.name;
+            document.getElementById('promptContentInput').value = prompt.content;
+            document.getElementById('promptCategoryInput').value = prompt.category;
+            this.showPromptEditModal();
+        }
+    }
+
+    /**
+     * 删除提示词
+     */
+    async deletePrompt(promptId) {
+        const prompt = this.prompts.find(p => p.id === promptId);
+        if (!prompt) return;
+        
+        const confirmDelete = confirm(`确定要删除提示词 "${prompt.name}" 吗？`);
+        if (!confirmDelete) return;
+        
+        try {
+            const response = await fetch(`/api/prompts/${promptId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            this.showSuccess('提示词删除成功');
+            await this.loadPrompts();
+            
+        } catch (error) {
+            console.error('删除提示词失败:', error);
+            this.showError('删除提示词失败');
+        }
+    }
+
+    /**
+     * 显示提示词选择模态框
+     */
+    showPromptSelectModal() {
+        this.updatePromptSelectList();
+        document.getElementById('promptSelectModal').style.display = 'block';
+    }
+
+    /**
+     * 显示提示词编辑模态框
+     */
+    showPromptEditModal() {
+        if (!this.currentEditingPromptId) {
+            // 新建模式
+            document.getElementById('promptEditModalTitle').innerHTML = '<i class="fas fa-plus"></i> 添加提示词';
+            document.getElementById('promptNameInput').value = '';
+            document.getElementById('promptContentInput').value = '';
+            document.getElementById('promptCategoryInput').value = 'custom';
+        }
+        document.getElementById('promptEditModal').style.display = 'block';
+    }
+
+    /**
+     * 关闭模态框
+     */
+    closePromptModal() {
+        document.getElementById('promptSelectModal').style.display = 'none';
+        document.getElementById('promptEditModal').style.display = 'none';
+        this.currentEditingPromptId = null;
+    }
+
+    /**
+     * 更新提示词选择列表
+     */
+    updatePromptSelectList() {
+        const promptSelectList = document.getElementById('promptSelectList');
+        const categoryFilter = document.getElementById('promptSelectFilter').value;
+        
+        // 过滤提示词
+        let filteredPrompts = this.prompts;
+        if (categoryFilter) {
+            filteredPrompts = this.prompts.filter(prompt => prompt.category === categoryFilter);
+        }
+        
+        if (filteredPrompts.length === 0) {
+            promptSelectList.innerHTML = '<div class="prompt-item"><div class="prompt-item-info"><div class="prompt-item-content">暂无提示词</div></div></div>';
+            return;
+        }
+        
+        promptSelectList.innerHTML = filteredPrompts.map(prompt => `
+            <div class="prompt-item" onclick="app.selectPrompt('${prompt.id}')">
+                <div class="prompt-item-info">
+                    <div class="prompt-item-name">${prompt.name}</div>
+                    <div class="prompt-item-content">${prompt.content}</div>
+                    <span class="prompt-item-category">${this.getCategoryDisplayName(prompt.category)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * 选择提示词
+     */
+    selectPrompt(promptId) {
+        this.usePrompt(promptId);
+        this.closePromptModal();
+    }
+
+    /**
+     * 保存提示词
+     */
+    async savePrompt() {
+        const name = document.getElementById('promptNameInput').value.trim();
+        const content = document.getElementById('promptContentInput').value.trim();
+        const category = document.getElementById('promptCategoryInput').value;
+        
+        if (!name || !content) {
+            this.showError('请填写完整的提示词信息');
+            return;
+        }
+        
+        try {
+            const url = this.currentEditingPromptId ? 
+                `/api/prompts/${this.currentEditingPromptId}` : 
+                '/api/prompts';
+            
+            const method = this.currentEditingPromptId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    content: content,
+                    category: category
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            this.showSuccess(this.currentEditingPromptId ? '提示词更新成功' : '提示词添加成功');
+            this.closePromptModal();
+            await this.loadPrompts();
+            
+        } catch (error) {
+            console.error('保存提示词失败:', error);
+            this.showError('保存提示词失败');
+        }
+    }
+
+    /**
+     * 导出提示词
+     */
+    async exportPrompts() {
+        try {
+            const response = await fetch('/api/prompts/export');
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            const data = result.data || result;
+            const exportData = data.export_data;
+            
+            // 创建下载链接
+            const blob = new Blob([exportData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prompts_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showSuccess('提示词导出成功');
+            
+        } catch (error) {
+            console.error('导出提示词失败:', error);
+            this.showError('导出提示词失败');
+        }
+    }
+
+    /**
+     * 导入提示词
+     */
+    importPrompts() {
+        document.getElementById('promptFileInput').click();
+    }
+
+    /**
+     * 处理提示词文件导入
+     */
+    async handlePromptFileImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const jsonData = e.target.result;
+                
+                const response = await fetch('/api/prompts/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        json_data: jsonData
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    this.showError(result.error);
+                    return;
+                }
+                
+                const data = result.data || result;
+                this.showSuccess(`提示词导入成功！导入${data.imported_count}个，跳过${data.skipped_count}个`);
+                
+                if (data.errors && data.errors.length > 0) {
+                    console.warn('导入错误:', data.errors);
+                }
+                
+                await this.loadPrompts();
+                
+            } catch (error) {
+                console.error('导入提示词失败:', error);
+                this.showError('导入提示词失败');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    /**
+     * 清空提示词
+     */
+    async clearPrompts() {
+        const confirmClear = confirm('确定要清空所有用户提示词吗？此操作不可恢复！');
+        if (!confirmClear) return;
+        
+        try {
+            const response = await fetch('/api/prompts/clear', {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                this.showError(result.error);
+                return;
+            }
+            
+            this.showSuccess('所有用户提示词已清空');
+            await this.loadPrompts();
+            
+        } catch (error) {
+            console.error('清空提示词失败:', error);
+            this.showError('清空提示词失败');
+        }
+    }
+
+    /**
+     * 过滤提示词
+     */
+    filterPrompts() {
+        this.updatePromptList();
+    }
+
+    /**
+     * 过滤提示词选择
+     */
+    filterPromptSelect() {
+        this.updatePromptSelectList();
+    }
+
+    /**
+     * 获取分类显示名称
+     */
+    getCategoryDisplayName(category) {
+        const categoryNames = {
+            'translation': '翻译',
+            'polish': '润色',
+            'summary': '总结',
+            'custom': '自定义',
+            'imported': '导入'
+        };
+        return categoryNames[category] || category;
     }
 }
 

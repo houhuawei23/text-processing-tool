@@ -9,6 +9,7 @@ A modern, well-structured text processing web application built with Python Flas
 - **Statistical Analysis**: Detailed text statistics including character counts, word frequency, and readability metrics
 - **Regex Processing**: Advanced regex pattern matching and replacement with custom rules
 - **Translation Services**: Multi-service translation support (DeepSeek, OpenAI)
+- **Prompt Management**: Add, save, select, export, and import translation prompts
 - **Real-time Processing**: Fast, responsive text processing with progress indicators
 
 ### Technical Features
@@ -237,6 +238,14 @@ python -m pytest --cov=src tests/
 - **Long Text Support**: Automatic text chunking for large documents
 - **Retry Mechanism**: Automatic retry on failures
 - **Progress Tracking**: Real-time progress for long translations
+
+### Prompt Management
+
+- **Custom Prompts**: Create and save personalized translation prompts
+- **Prompt Categories**: Organize prompts by type (translation, polish, summary, custom)
+- **Quick Selection**: Fast access to saved prompts through modal interface
+- **Import/Export**: Backup and restore prompt configurations via JSON files
+- **Default Prompts**: Pre-configured prompts for common translation tasks
 
 ## 🔒 Security Features
 

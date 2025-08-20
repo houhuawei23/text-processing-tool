@@ -1,0 +1,11 @@
+{
+    "version": "1.0",
+    "exported_at": "2025-08-20T21:19:40.392074",
+    "prompts": [
+        {
+            "name": "翻译成中文",
+            "content": "将所给的文本内容完整准确地翻译成流畅的中文，要求：\n- 保留重要术语的英文，如 “领域无关规划器（Domain-independent planners）”\n- 完整准确地翻译原文，不要遗漏任何信息，包引用和注释等\n- 只输出翻译好的结果",
+            "category": "translation"
+        }
+    ]
+}
