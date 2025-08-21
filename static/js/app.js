@@ -858,7 +858,7 @@ class TextProcessorApp {
         for (const line of lines) {
             // 支持 pattern 和 replacement 分别用不同的引号
             // (r"pattern", r'replacement') 或 (r'pattern', r"replacement") 等
-            const rawTupleMatch = line.match(/\(\s*r(["'])([\s\S]+?)\1\s*,\s*r(["'])([\s\S]+?)\3\s*\)/);
+            const rawTupleMatch = line.match(/\(\s*r(["'])([\s\S]*?)\1\s*,\s*r(["'])([\s\S]*?)\3\s*\)/);
             if (rawTupleMatch) {
                 const pattern = rawTupleMatch[2];
                 const replacement = rawTupleMatch[4];
@@ -866,7 +866,7 @@ class TextProcessorApp {
                 continue;
             }
             // 兼容旧逻辑（同种引号）
-            const oldRawTupleMatch = line.match(/\(\s*r["']([^"']+)["']\s*,\s*r["']([^"']+)["']\s*\)/);
+            const oldRawTupleMatch = line.match(/\(\s*r["']([^"']*)["']\s*,\s*r["']([^"']*)["']\s*\)/);
             if (oldRawTupleMatch) {
                 const pattern = oldRawTupleMatch[1];
                 const replacement = oldRawTupleMatch[2];
@@ -875,7 +875,7 @@ class TextProcessorApp {
             }
             
             // 匹配 ("pattern", "replacement") 格式 - 需要转义处理
-            const simpleMatch = line.match(/\(\s*["']([^"']+)["']\s*,\s*["']([^"']+)["']\s*\)/);
+            const simpleMatch = line.match(/\(\s*["']([^"']*)["']\s*,\s*["']([^"']*)["']\s*\)/);
             if (simpleMatch) {
                 const pattern = this.escapeRegexPattern(simpleMatch[1]);
                 const replacement = this.escapeRegexReplacement(simpleMatch[2]);
@@ -884,7 +884,7 @@ class TextProcessorApp {
             }
             
             // 匹配 s/pattern/replacement/ 格式
-            const sedMatch = line.match(/^s\/([^\/]+)\/([^\/]*)\/?$/);
+            const sedMatch = line.match(/^s\/([^\/]*)\/([^\/]*)\/?$/);
             if (sedMatch) {
                 const pattern = sedMatch[1];
                 const replacement = sedMatch[2];
