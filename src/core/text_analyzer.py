@@ -251,7 +251,7 @@ class TextAnalyzer:
             chinese_ratio = chinese_chars / total_chars
             english_ratio = english_chars / total_chars
             
-            if chinese_ratio > 0.3 and english_ratio > 0.3:
+            if chinese_ratio > 0.15 and english_ratio > 0.15:
                 language_type = 'mixed'
             elif chinese_ratio > english_ratio:
                 language_type = 'chinese'

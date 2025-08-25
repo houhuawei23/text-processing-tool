@@ -146,10 +146,10 @@ class TextFormatter:
                 # Handle nested parentheses and quotes
                 comma_pos = self._find_separator_comma(content)
                 if comma_pos != -1:
-                    pattern = content[:comma_pos].strip().strip('"\'')
-                    replacement = content[comma_pos + 1:].strip().strip('"\'')
+                    pattern = content[:comma_pos].strip()
+                    replacement = content[comma_pos + 1:].strip()
                     
-                    # Remove 'r' prefix if present
+                    # Remove 'r' prefix and quotes if present
                     if pattern.startswith('r"') or pattern.startswith("r'"):
                         pattern = pattern[2:-1]
                     elif pattern.startswith('"') or pattern.startswith("'"):
@@ -160,7 +160,9 @@ class TextFormatter:
                     elif replacement.startswith('"') or replacement.startswith("'"):
                         replacement = replacement[1:-1]
                     
-                    return pattern, replacement
+                    # Validate that we have both pattern and replacement
+                    if pattern and replacement:
+                        return pattern, replacement
         except Exception:
             pass
         

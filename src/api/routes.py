@@ -34,7 +34,11 @@ def process_text_api():
         if not request.is_json:
             return create_error_response('Request must be JSON', 400)
         
-        data = request.get_json()
+        try:
+            data = request.get_json()
+        except Exception:
+            return create_error_response('Invalid JSON format', 400)
+        
         if not data:
             return create_error_response('Invalid request data', 400)
         
@@ -76,7 +80,11 @@ def regex_process_api():
         if not request.is_json:
             return create_error_response('Request must be JSON', 400)
         
-        data = request.get_json()
+        try:
+            data = request.get_json()
+        except Exception:
+            return create_error_response('Invalid JSON format', 400)
+        
         if not data:
             return create_error_response('Invalid request data', 400)
         
@@ -127,7 +135,11 @@ def translate_text_api():
         if not request.is_json:
             return create_error_response('Request must be JSON', 400)
         
-        data = request.get_json()
+        try:
+            data = request.get_json()
+        except Exception:
+            return create_error_response('Invalid JSON format', 400)
+        
         if not data:
             return create_error_response('Invalid request data', 400)
         

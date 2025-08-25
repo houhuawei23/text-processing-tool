@@ -11,11 +11,11 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from core.text_processor import text_processor
-from core.text_analyzer import TextAnalyzer
-from core.text_formatter import TextFormatter
-from config.app_config import AppConfig
-from config.translation_config import TranslationConfig
+from src.core.text_processor import text_processor
+from src.core.text_analyzer import TextAnalyzer
+from src.core.text_formatter import TextFormatter
+from src.config.app_config import AppConfig
+from src.config.translation_config import TranslationConfig
 
 
 class TestBasicFunctionality(unittest.TestCase):

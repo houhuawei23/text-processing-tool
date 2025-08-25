@@ -12,9 +12,9 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from core.text_processor import TextProcessor, text_processor
-from core.text_analyzer import TextAnalyzer
-from core.text_formatter import TextFormatter
+from src.core.text_processor import TextProcessor, text_processor
+from src.core.text_analyzer import TextAnalyzer
+from src.core.text_formatter import TextFormatter
 
 
 class TestTextProcessor(unittest.TestCase):

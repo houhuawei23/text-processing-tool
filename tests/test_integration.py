@@ -347,8 +347,10 @@ class TestTranslationServiceIntegration(unittest.TestCase):
         self.test_prompt = "Translate to Chinese"
     
     @patch('src.services.translation_service.translation_service._translate_with_deepseek')
-    def test_deepseek_translation_integration(self, mock_deepseek):
+    @patch('src.services.translation_service.TranslationConfig.is_service_available')
+    def test_deepseek_translation_integration(self, mock_is_available, mock_deepseek):
         """Test DeepSeek translation integration."""
+        mock_is_available.return_value = True
         mock_deepseek.return_value = {
             'translated_text': '你好世界！这是一个测试。',
             'service_used': 'deepseek',
@@ -368,8 +370,10 @@ class TestTranslationServiceIntegration(unittest.TestCase):
         self.assertEqual(result['prompt_used'], self.test_prompt)
     
     @patch('src.services.translation_service.translation_service._translate_with_openai')
-    def test_openai_translation_integration(self, mock_openai):
+    @patch('src.services.translation_service.TranslationConfig.is_service_available')
+    def test_openai_translation_integration(self, mock_is_available, mock_openai):
         """Test OpenAI translation integration."""
+        mock_is_available.return_value = True
         mock_openai.return_value = {
             'translated_text': '你好世界！这是一个测试。',
             'service_used': 'openai',

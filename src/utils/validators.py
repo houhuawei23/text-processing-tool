@@ -33,12 +33,9 @@ def validate_text_input(text: str) -> Dict[str, Any]:
     
     # Check if text is a string
     if not isinstance(text, str):
-        try:
-            text = str(text)
-        except:
-            result['valid'] = False
-            result['error'] = 'Text input must be a string'
-            return result
+        result['valid'] = False
+        result['error'] = 'Text input must be a string'
+        return result
     
     # Check if text is empty
     if not text or not text.strip():
