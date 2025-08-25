@@ -8,6 +8,9 @@ class TextProcessorApp {
         this.currentResult = null;
         this.isProcessing = false;
         this.regexRules = [];  // 存储正则规则
+        this.inputWindows = [];  // 存储输入窗口信息
+        this.outputWindows = [];  // 存储输出窗口信息
+        this.nextWindowId = 2;  // 下一个窗口ID
         this.init();
     }
 
@@ -15,6 +18,7 @@ class TextProcessorApp {
      * 初始化应用程序
      */
     init() {
+        this.initializeWindows();
         this.bindEvents();
         this.updateCharCount();
         this.updateRegexRulesCharCount();
@@ -24,16 +28,53 @@ class TextProcessorApp {
         this.setupResizeHandle();  // 设置拖动分隔线
         this.setupRegexRulesWindow();  // 设置正则规则窗口控制
         this.setupTabSwitching();  // 设置选项卡切换
+        this.setupSmoothAnimations();  // 设置平滑动画
+        this.setupKeyboardShortcuts();  // 设置键盘快捷键
+    }
+
+    /**
+     * 初始化窗口系统
+     */
+    initializeWindows() {
+        // 初始化第一个输入窗口
+        this.inputWindows = [{
+            id: 1,
+            element: document.getElementById('inputText1'),
+            charCount: 0
+        }];
+
+        // 初始化第一个输出窗口
+        this.outputWindows = [{
+            id: 1,
+            element: document.getElementById('processedText1'),
+            views: {
+                processed: document.getElementById('processedView1'),
+                statistics: document.getElementById('statisticsView1'),
+                analysis: document.getElementById('analysisView1')
+            },
+            stats: {
+                basicStats: document.getElementById('basicStats1'),
+                charStats: document.getElementById('charStats1'),
+                wordFreq: document.getElementById('wordFreq1'),
+                readability: document.getElementById('readability1'),
+                sentiment: document.getElementById('sentiment1'),
+                languageFeatures: document.getElementById('languageFeatures1')
+            }
+        }];
+
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        // 从本地存储恢复数据
+        this.restoreFromLocalStorage();
     }
 
     /**
      * 绑定事件监听器
      */
     bindEvents() {
-        // 文本输入事件
-        const inputText = document.getElementById('inputText');
-        inputText.addEventListener('input', () => this.updateCharCount());
-        inputText.addEventListener('paste', () => this.updateCharCount());
+        // 文本输入事件 - 为所有输入窗口绑定事件
+        this.bindInputEvents();
 
         // 正则规则输入事件
         const regexReplaceRules = document.getElementById('regexReplaceRules');
@@ -48,6 +89,12 @@ class TextProcessorApp {
         document.getElementById('parseRulesBtn').addEventListener('click', () => this.parseRegexRules());
         document.getElementById('exportRegexRules').addEventListener('click', () => this.exportRegexRules());
         document.getElementById('addRegexRule').addEventListener('click', () => this.addRegexRule());
+
+        // 窗口管理事件
+        document.getElementById('addInputWindow').addEventListener('click', () => this.addInputWindow());
+        document.getElementById('removeInputWindow').addEventListener('click', () => this.removeInputWindow());
+        document.getElementById('addOutputWindow').addEventListener('click', () => this.addOutputWindow());
+        document.getElementById('removeOutputWindow').addEventListener('click', () => this.removeOutputWindow());
 
         // 复制按钮事件
         document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -103,6 +150,263 @@ class TextProcessorApp {
     }
 
     /**
+     * 为所有输入窗口绑定事件
+     */
+    bindInputEvents() {
+        // 为现有的输入窗口绑定事件
+        this.inputWindows.forEach(window => {
+            this.bindSingleInputEvents(window);
+        });
+    }
+
+    /**
+     * 为单个输入窗口绑定事件
+     */
+    bindSingleInputEvents(window) {
+        const textarea = window.element;
+        textarea.addEventListener('input', () => this.updateCharCount());
+        textarea.addEventListener('paste', () => this.updateCharCount());
+    }
+
+    /**
+     * 添加输入窗口
+     */
+    addInputWindow() {
+        const windowId = this.nextWindowId++;
+        const container = document.querySelector('.input-windows-container');
+        
+        // 创建新的输入窗口HTML
+        const windowHTML = `
+            <div class="input-window-item" data-window-id="${windowId}">
+                <div class="textarea-container">
+                    <textarea
+                        id="inputText${windowId}"
+                        class="input-textarea"
+                        placeholder="请在此处粘贴或输入要处理的文本..."
+                        rows="12"
+                        style="resize: vertical; max-height: 800px; min-height: 200px;"
+                    ></textarea>
+                    <button
+                        class="copy-btn"
+                        data-target="inputText${windowId}"
+                        title="复制文本"
+                    >
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // 插入到容器中
+        container.insertAdjacentHTML('beforeend', windowHTML);
+        
+        // 创建窗口对象
+        const newWindow = {
+            id: windowId,
+            element: document.getElementById(`inputText${windowId}`),
+            charCount: 0
+        };
+        
+        // 添加到窗口列表
+        this.inputWindows.push(newWindow);
+        
+        // 绑定事件
+        this.bindSingleInputEvents(newWindow);
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        // 重新绑定复制按钮事件
+        this.rebindCopyButtons();
+        
+        this.showSuccess(`已添加输入窗口 ${windowId}`);
+    }
+
+    /**
+     * 移除输入窗口
+     */
+    removeInputWindow() {
+        if (this.inputWindows.length <= 1) {
+            this.showError('至少需要保留一个输入窗口');
+            return;
+        }
+        
+        // 移除最后一个窗口
+        const lastWindow = this.inputWindows.pop();
+        const windowElement = document.querySelector(`[data-window-id="${lastWindow.id}"]`);
+        
+        if (windowElement) {
+            windowElement.remove();
+        }
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        // 重新绑定复制按钮事件
+        this.rebindCopyButtons();
+        
+        this.showSuccess(`已移除输入窗口 ${lastWindow.id}`);
+    }
+
+    /**
+     * 添加输出窗口
+     */
+    addOutputWindow() {
+        const windowId = this.nextWindowId++;
+        const container = document.querySelector('.output-windows-container');
+        
+        // 创建新的输出窗口HTML
+        const windowHTML = `
+            <div class="output-window-item" data-window-id="${windowId}">
+                <div class="output-container">
+                    <!-- 处理文本视图 -->
+                    <div
+                        id="processedView${windowId}"
+                        class="output-view active"
+                    >
+                        <div class="text-output">
+                            <pre id="processedText${windowId}"></pre>
+                            <button
+                                class="copy-btn"
+                                data-target="processedText${windowId}"
+                                title="复制结果"
+                            >
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息视图 -->
+                    <div id="statisticsView${windowId}" class="output-view">
+                        <div class="statistics-grid">
+                            <div class="stat-card">
+                                <h4>基本统计</h4>
+                                <div id="basicStats${windowId}"></div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>字符类型</h4>
+                                <div id="charStats${windowId}"></div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>词频统计</h4>
+                                <div id="wordFreq${windowId}"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文本分析视图 -->
+                    <div id="analysisView${windowId}" class="output-view">
+                        <div class="analysis-grid">
+                            <div class="analysis-card">
+                                <h4>可读性分析</h4>
+                                <div id="readability${windowId}"></div>
+                            </div>
+                            <div class="analysis-card">
+                                <h4>情感分析</h4>
+                                <div id="sentiment${windowId}"></div>
+                            </div>
+                            <div class="analysis-card">
+                                <h4>语言特征</h4>
+                                <div id="languageFeatures${windowId}"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 插入到容器中
+        container.insertAdjacentHTML('beforeend', windowHTML);
+        
+        // 创建窗口对象
+        const newWindow = {
+            id: windowId,
+            element: document.getElementById(`processedText${windowId}`),
+            views: {
+                processed: document.getElementById(`processedView${windowId}`),
+                statistics: document.getElementById(`statisticsView${windowId}`),
+                analysis: document.getElementById(`analysisView${windowId}`)
+            },
+            stats: {
+                basicStats: document.getElementById(`basicStats${windowId}`),
+                charStats: document.getElementById(`charStats${windowId}`),
+                wordFreq: document.getElementById(`wordFreq${windowId}`),
+                readability: document.getElementById(`readability${windowId}`),
+                sentiment: document.getElementById(`sentiment${windowId}`),
+                languageFeatures: document.getElementById(`languageFeatures${windowId}`)
+            }
+        };
+        
+        // 添加到窗口列表
+        this.outputWindows.push(newWindow);
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        // 重新绑定复制按钮事件
+        this.rebindCopyButtons();
+        
+        this.showSuccess(`已添加输出窗口 ${windowId}`);
+    }
+
+    /**
+     * 移除输出窗口
+     */
+    removeOutputWindow() {
+        if (this.outputWindows.length <= 1) {
+            this.showError('至少需要保留一个输出窗口');
+            return;
+        }
+        
+        // 移除最后一个窗口
+        const lastWindow = this.outputWindows.pop();
+        const windowElement = document.querySelector(`[data-window-id="${lastWindow.id}"]`);
+        
+        if (windowElement) {
+            windowElement.remove();
+        }
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        // 重新绑定复制按钮事件
+        this.rebindCopyButtons();
+        
+        this.showSuccess(`已移除输出窗口 ${lastWindow.id}`);
+    }
+
+    /**
+     * 更新窗口控制按钮状态
+     */
+    updateWindowControlButtons() {
+        const addInputBtn = document.getElementById('addInputWindow');
+        const removeInputBtn = document.getElementById('removeInputWindow');
+        const addOutputBtn = document.getElementById('addOutputWindow');
+        const removeOutputBtn = document.getElementById('removeOutputWindow');
+        
+        // 输入窗口控制
+        removeInputBtn.disabled = this.inputWindows.length <= 1;
+        
+        // 输出窗口控制
+        removeOutputBtn.disabled = this.outputWindows.length <= 1;
+    }
+
+    /**
+     * 重新绑定复制按钮事件
+     */
+    rebindCopyButtons() {
+        // 移除所有现有的复制按钮事件
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.replaceWith(btn.cloneNode(true));
+        });
+        
+        // 重新绑定事件
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.copyText(e));
+        });
+    }
+
+    /**
      * 处理键盘快捷键
      */
     handleKeyboardShortcuts(e) {
@@ -117,25 +421,51 @@ class TextProcessorApp {
             e.preventDefault();
             this.clearAll();
         }
+        
+        // Ctrl+Shift+R 正则处理
+        if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+            e.preventDefault();
+            this.processRegex();
+        }
+        
+        // Ctrl+Shift+T 翻译
+        if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+            e.preventDefault();
+            this.translateText();
+        }
+        
+        // Ctrl+Shift+1-9 切换选项卡
+        if (e.ctrlKey && e.shiftKey && /^[1-9]$/.test(e.key)) {
+            e.preventDefault();
+            const tabIndex = parseInt(e.key) - 1;
+            const tabs = ['options', 'translation', 'regex'];
+            if (tabs[tabIndex]) {
+                this.switchToTab(tabs[tabIndex]);
+            }
+        }
     }
 
     /**
      * 更新字符计数
      */
     updateCharCount() {
-        const inputText = document.getElementById('inputText');
         const charCount = document.getElementById('charCount');
-        const count = inputText.value.length;
+        let totalCount = 0;
         
-        charCount.textContent = count.toLocaleString();
+        // 计算所有输入窗口的字符总数
+        this.inputWindows.forEach(window => {
+            totalCount += window.element.value.length;
+        });
+        
+        charCount.textContent = totalCount.toLocaleString();
         
         // 根据字符数改变计数器颜色
-        const counter = charCount.parentElement;
-        if (count === 0) {
+        const counter = charCount.parentElement.parentElement;
+        if (totalCount === 0) {
             counter.style.background = '#6b7280';
-        } else if (count < 100) {
+        } else if (totalCount < 100) {
             counter.style.background = '#10b981';
-        } else if (count < 1000) {
+        } else if (totalCount < 1000) {
             counter.style.background = '#f59e0b';
         } else {
             counter.style.background = '#ef4444';
@@ -168,7 +498,6 @@ class TextProcessorApp {
      */
     setupViewToggle() {
         const toggleButtons = document.querySelectorAll('.toggle-btn');
-        const outputViews = document.querySelectorAll('.output-view');
 
         toggleButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -178,11 +507,13 @@ class TextProcessorApp {
                 toggleButtons.forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 
-                // 更新视图显示
-                outputViews.forEach(view => {
-                    view.classList.remove('active');
-                    if (view.id === `${targetView}View`) {
-                        view.classList.add('active');
+                // 更新所有输出窗口的视图显示
+                this.outputWindows.forEach(window => {
+                    Object.values(window.views).forEach(view => {
+                        view.classList.remove('active');
+                    });
+                    if (window.views[targetView]) {
+                        window.views[targetView].classList.add('active');
                     }
                 });
             });
@@ -206,10 +537,10 @@ class TextProcessorApp {
      * 处理文本
      */
     async processText() {
-        const inputText = document.getElementById('inputText');
-        const text = inputText.value.trim();
-
-        if (!text) {
+        // 收集所有输入窗口的文本
+        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
+        
+        if (inputTexts.length === 0) {
             this.showError('请输入要处理的文本');
             return;
         }
@@ -225,35 +556,59 @@ class TextProcessorApp {
             // 获取处理选项
             const operations = this.getSelectedOperations();
             
-            // 调用API
-            const response = await fetch('/api/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    text: text,
-                    operations: operations
-                })
+            // 为每个输入文本创建处理任务
+            const processingTasks = inputTexts.map(async (text, index) => {
+                try {
+                    // 调用API
+                    const response = await fetch('/api/process', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            operations: operations
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || '处理失败');
+                    }
+
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    // 提取数据（API返回的数据在result.data中）
+                    const data = result.data || result;
+                    
+                    return {
+                        index: index,
+                        data: data,
+                        success: true
+                    };
+                } catch (error) {
+                    console.error(`处理文本 ${index + 1} 时发生错误:`, error);
+                    return {
+                        index: index,
+                        error: error.message || '处理失败',
+                        success: false
+                    };
+                }
             });
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || '处理失败');
-            }
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            // 提取数据（API返回的数据在result.data中）
-            const data = result.data || result;
-
-            // 保存结果并更新UI
-            this.currentResult = data;
-            this.updateUI(data);
-            this.showSuccess('文本处理完成');
+            // 等待所有处理任务完成
+            const results = await Promise.all(processingTasks);
+            
+            // 更新UI显示结果
+            this.updateUIWithMultipleResults(results);
+            
+            // 保存当前结果
+            this.currentResult = results;
+            
+            this.showEnhancedSuccess(`文本处理完成，共处理 ${results.filter(r => r.success).length} 个文本`);
 
         } catch (error) {
             console.error('处理文本时发生错误:', error);
@@ -268,10 +623,10 @@ class TextProcessorApp {
      * 处理正则表达式替换
      */
     async processRegex() {
-        const inputText = document.getElementById('inputText');
-        const text = inputText.value.trim();
+        // 收集所有输入窗口的文本
+        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
 
-        if (!text) {
+        if (inputTexts.length === 0) {
             this.showError('请输入要处理的文本');
             return;
         }
@@ -289,34 +644,59 @@ class TextProcessorApp {
         this.showLoading();
 
         try {
-            // 调用正则处理API
-            const response = await fetch('/api/regex', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    text: text,
-                    regex_rules: this.regexRules
-                })
+            // 为每个输入文本创建处理任务
+            const processingTasks = inputTexts.map(async (text, index) => {
+                try {
+                    // 调用正则处理API
+                    const response = await fetch('/api/regex', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            regex_rules: this.regexRules
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || '正则处理失败');
+                    }
+
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    // 提取数据（API返回的数据在result.data中）
+                    const data = result.data || result;
+                    
+                    return {
+                        index: index,
+                        data: data,
+                        success: true
+                    };
+                } catch (error) {
+                    console.error(`正则处理文本 ${index + 1} 时发生错误:`, error);
+                    return {
+                        index: index,
+                        error: error.message || '正则处理失败',
+                        success: false
+                    };
+                }
             });
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || '正则处理失败');
-            }
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            // 提取数据（API返回的数据在result.data中）
-            const data = result.data || result;
-
+            // 等待所有处理任务完成
+            const results = await Promise.all(processingTasks);
+            
             // 更新UI显示结果
-            this.updateUIWithRegexResult(data);
-            this.showSuccess('正则处理完成');
+            this.updateUIWithRegexResults(results);
+            
+            // 保存当前结果
+            this.currentResult = results;
+            
+            this.showEnhancedSuccess(`正则处理完成，共处理 ${results.filter(r => r.success).length} 个文本`);
 
         } catch (error) {
             console.error('正则处理时发生错误:', error);
@@ -404,16 +784,29 @@ class TextProcessorApp {
     /**
      * 使用正则结果更新UI
      */
-    updateUIWithRegexResult(result) {
-        // 更新处理后的文本
-        const processedText = document.getElementById('processedText');
-        processedText.textContent = result.processed_text || '';
+    updateUIWithRegexResults(results) {
+        // 确保有足够的输出窗口
+        while (this.outputWindows.length < results.length) {
+            this.addOutputWindow();
+        }
+        
+        // 为每个结果分配一个输出窗口
+        results.forEach((result, index) => {
+            if (index < this.outputWindows.length) {
+                const outputWindow = this.outputWindows[index];
+                
+                if (result.success) {
+                    // 更新处理后的文本
+                    outputWindow.element.textContent = result.data.processed_text || '';
+                } else {
+                    // 显示错误信息
+                    outputWindow.element.textContent = `正则处理失败: ${result.error}`;
+                }
+            }
+        });
         
         // 切换到处理文本视图
         this.switchToView('processed');
-        
-        // 保存当前结果
-        this.currentResult = result;
     }
 
     /**
@@ -421,17 +814,21 @@ class TextProcessorApp {
      */
     switchToView(viewName) {
         const toggleButtons = document.querySelectorAll('.toggle-btn');
-        const outputViews = document.querySelectorAll('.output-view');
         
         // 更新按钮状态
         toggleButtons.forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
+        const targetButton = document.querySelector(`[data-view="${viewName}"]`);
+        if (targetButton) {
+            targetButton.classList.add('active');
+        }
         
-        // 更新视图显示
-        outputViews.forEach(view => {
-            view.classList.remove('active');
-            if (view.id === `${viewName}View`) {
-                view.classList.add('active');
+        // 更新所有输出窗口的视图显示
+        this.outputWindows.forEach(window => {
+            Object.values(window.views).forEach(view => {
+                view.classList.remove('active');
+            });
+            if (window.views[viewName]) {
+                window.views[viewName].classList.add('active');
             }
         });
     }
@@ -712,22 +1109,21 @@ class TextProcessorApp {
                 }
             });
 
-            // 清空输入文本
-            document.getElementById('inputText').value = '';
+            // 清空所有输入窗口
+            this.inputWindows.forEach(window => {
+                window.element.value = '';
+            });
             this.updateCharCount();
 
             // 清空正则规则输入
             document.getElementById('regexReplaceRules').value = '';
             this.updateRegexRulesCharCount();
 
-            // 清空输出
-            document.getElementById('processedText').textContent = '';
-            document.getElementById('basicStats').innerHTML = '';
-            document.getElementById('charStats').innerHTML = '';
-            document.getElementById('wordFreq').innerHTML = '';
-            document.getElementById('readability').innerHTML = '';
-            document.getElementById('sentiment').innerHTML = '';
-            document.getElementById('languageFeatures').innerHTML = '';
+            // 清空所有输出窗口
+            this.outputWindows.forEach(window => {
+                window.element.textContent = '';
+                this.clearWindowStats(window);
+            });
 
             // 清空正则规则
             this.regexRules = [];
@@ -752,8 +1148,8 @@ class TextProcessorApp {
         const loadingText = document.querySelector('.loading-spinner p');
         
         // 检查是否是长文本翻译
-        const inputText = document.getElementById('inputText').value.trim();
-        if (inputText.length > 3000) {
+        const totalLength = this.inputWindows.reduce((sum, window) => sum + window.element.value.trim().length, 0);
+        if (totalLength > 3000) {
             loadingText.textContent = '正在翻译长文本，请耐心等待...';
         } else {
             loadingText.textContent = '正在处理文本...';
@@ -816,6 +1212,7 @@ class TextProcessorApp {
         if (this.isProcessing) {
             return '正在处理文本，确定要离开吗？';
         }
+        return undefined;
     }
 
     /**
@@ -943,12 +1340,22 @@ class TextProcessorApp {
         const targetId = button.getAttribute('data-target');
         const targetElement = document.getElementById(targetId);
         
+        console.log('Copy button clicked:', { targetId, targetElement, button });
+        
+        if (!targetElement) {
+            this.showError('找不到目标元素');
+            return;
+        }
+        
         let textToCopy = '';
         
-        if (targetId === 'processedText') {
+        // 检查是否是处理结果元素（processedText1, processedText2, etc.）
+        if (targetId.startsWith('processedText')) {
             textToCopy = targetElement.textContent;
+            console.log('Copying from processed text element:', { targetId, textLength: textToCopy.length, textContent: textToCopy });
         } else {
             textToCopy = targetElement.value;
+            console.log('Copying from input element:', { targetId, textLength: textToCopy.length, textContent: textToCopy });
         }
         
         if (!textToCopy.trim()) {
@@ -957,7 +1364,30 @@ class TextProcessorApp {
         }
         
         try {
-            await navigator.clipboard.writeText(textToCopy);
+            // 尝试使用现代 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                console.log('Using modern Clipboard API');
+                
+                // 检查权限
+                if (navigator.permissions) {
+                    try {
+                        const permission = await navigator.permissions.query({ name: 'clipboard-write' });
+                        console.log('Clipboard permission state:', permission.state);
+                        if (permission.state === 'denied') {
+                            throw new Error('剪贴板权限被拒绝');
+                        }
+                    } catch (permErr) {
+                        console.log('Permission check failed, continuing with clipboard API:', permErr);
+                    }
+                }
+                
+                await navigator.clipboard.writeText(textToCopy);
+                console.log('Clipboard API copy successful');
+            } else {
+                console.log('Clipboard API not available, using fallback method');
+                // 降级到传统方法
+                this.fallbackCopyTextToClipboard(textToCopy);
+            }
             
             // 显示复制成功状态
             button.classList.add('copied');
@@ -968,7 +1398,50 @@ class TextProcessorApp {
             this.showSuccess('文本已复制到剪贴板');
         } catch (err) {
             console.error('复制文本失败:', err);
-            this.showError('复制文本失败');
+            
+            // 如果是权限问题，给出具体提示
+            if (err.message.includes('权限') || err.message.includes('permission')) {
+                this.showError('剪贴板权限被拒绝，请允许网站访问剪贴板或使用手动复制');
+                return;
+            }
+            
+            // 尝试降级方法
+            try {
+                this.fallbackCopyTextToClipboard(textToCopy);
+                this.showSuccess('文本已复制到剪贴板（使用降级方法）');
+            } catch (fallbackErr) {
+                console.error('降级复制方法也失败:', fallbackErr);
+                this.showError('复制文本失败，请手动选择文本复制');
+            }
+        }
+    }
+
+    /**
+     * 降级复制文本到剪贴板的方法
+     */
+    fallbackCopyTextToClipboard(text) {
+        console.log('Using fallback copy method');
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        
+        // 避免滚动到页面底部
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            console.log('execCommand copy result:', successful);
+            if (!successful) {
+                throw new Error('execCommand copy failed');
+            }
+        } finally {
+            document.body.removeChild(textArea);
         }
     }
 
@@ -1114,6 +1587,8 @@ ${rulesText}`;
             const data = result.data || result;
             
             const serviceSelect = document.getElementById('translationService');
+            if (!serviceSelect) return;
+            
             serviceSelect.innerHTML = '';
             
             if (data.count === 0) {
@@ -1163,6 +1638,8 @@ ${rulesText}`;
             
             const data = result.data || result;
             const modelSelect = document.getElementById('modelSelect');
+            if (!modelSelect) return;
+            
             modelSelect.innerHTML = '';
             
             if (data.count === 0) {
@@ -1203,17 +1680,17 @@ ${rulesText}`;
             
             // 更新API密钥输入框
             const apiKeyInput = document.getElementById('apiKeyInput');
-            if (data.user_config.has_api_key) {
+            if (apiKeyInput && data.user_config && data.user_config.has_api_key) {
                 apiKeyInput.value = '••••••••••••••••'; // 显示占位符
                 apiKeyInput.setAttribute('data-has-key', 'true');
-            } else {
+            } else if (apiKeyInput) {
                 apiKeyInput.value = '';
                 apiKeyInput.removeAttribute('data-has-key');
             }
             
             // 更新模型选择
             const modelSelect = document.getElementById('modelSelect');
-            if (data.user_config.model) {
+            if (modelSelect && data.user_config && data.user_config.model) {
                 // 确保模型选项已加载
                 await this.loadTranslationModels(serviceName);
                 modelSelect.value = data.user_config.model;
@@ -1234,6 +1711,11 @@ ${rulesText}`;
         const serviceSelect = document.getElementById('translationService');
         const apiKeyInput = document.getElementById('apiKeyInput');
         const modelSelect = document.getElementById('modelSelect');
+        
+        if (!serviceSelect || !apiKeyInput || !modelSelect) {
+            this.showError('找不到必要的表单元素');
+            return;
+        }
         
         const serviceName = serviceSelect.value;
         let apiKey = apiKeyInput.value.trim();
@@ -1297,6 +1779,11 @@ ${rulesText}`;
      */
     async clearApiConfig() {
         const serviceSelect = document.getElementById('translationService');
+        if (!serviceSelect) {
+            this.showError('找不到翻译服务选择器');
+            return;
+        }
+        
         const serviceName = serviceSelect.value;
         
         if (!serviceName) {
@@ -1327,9 +1814,13 @@ ${rulesText}`;
             const apiKeyInput = document.getElementById('apiKeyInput');
             const modelSelect = document.getElementById('modelSelect');
             
-            apiKeyInput.value = '';
-            apiKeyInput.removeAttribute('data-has-key');
-            modelSelect.value = '';
+            if (apiKeyInput) {
+                apiKeyInput.value = '';
+                apiKeyInput.removeAttribute('data-has-key');
+            }
+            if (modelSelect) {
+                modelSelect.value = '';
+            }
             
             this.updateApiConfigStatus('info', data.message);
             
@@ -1347,6 +1838,11 @@ ${rulesText}`;
      */
     async testApiConfig() {
         const serviceSelect = document.getElementById('translationService');
+        if (!serviceSelect) {
+            this.showError('找不到翻译服务选择器');
+            return;
+        }
+        
         const serviceName = serviceSelect.value;
         
         if (!serviceName) {
@@ -1390,8 +1886,10 @@ ${rulesText}`;
      */
     updateApiConfigStatus(type, message) {
         const statusElement = document.getElementById('apiConfigStatus');
-        statusElement.className = `api-config-status ${type}`;
-        statusElement.textContent = message;
+        if (statusElement) {
+            statusElement.className = `api-config-status ${type}`;
+            statusElement.textContent = message;
+        }
     }
 
     /**
@@ -1400,7 +1898,11 @@ ${rulesText}`;
     toggleApiKeyVisibility() {
         const apiKeyInput = document.getElementById('apiKeyInput');
         const toggleBtn = document.getElementById('toggleApiKeyBtn');
+        
+        if (!apiKeyInput || !toggleBtn) return;
+        
         const icon = toggleBtn.querySelector('i');
+        if (!icon) return;
         
         if (apiKeyInput.type === 'password') {
             apiKeyInput.type = 'text';
@@ -1425,11 +1927,13 @@ ${rulesText}`;
             const modelSelect = document.getElementById('modelSelect');
             const statusElement = document.getElementById('apiConfigStatus');
             
-            apiKeyInput.value = '';
-            apiKeyInput.removeAttribute('data-has-key');
-            modelSelect.innerHTML = '<option value="">请先选择翻译服务</option>';
-            statusElement.className = 'api-config-status';
-            statusElement.textContent = '';
+            if (apiKeyInput) apiKeyInput.value = '';
+            if (apiKeyInput) apiKeyInput.removeAttribute('data-has-key');
+            if (modelSelect) modelSelect.innerHTML = '<option value="">请先选择翻译服务</option>';
+            if (statusElement) {
+                statusElement.className = 'api-config-status';
+                statusElement.textContent = '';
+            }
             return;
         }
         
@@ -1446,6 +1950,8 @@ ${rulesText}`;
     onApiKeyInputFocus(event) {
         const apiKeyInput = event.target;
         
+        if (!apiKeyInput) return;
+        
         // 如果当前显示的是占位符，清空输入框
         if (apiKeyInput.value === '••••••••••••••••') {
             apiKeyInput.value = '';
@@ -1457,11 +1963,12 @@ ${rulesText}`;
      * 翻译文本
      */
     async translateText() {
-        const inputText = document.getElementById('inputText').value.trim();
+        // 收集所有输入窗口的文本
+        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
         const translationPrompt = document.getElementById('translationPrompt').value.trim();
         const translationService = document.getElementById('translationService').value;
         
-        if (!inputText) {
+        if (inputTexts.length === 0) {
             this.showError('请输入要翻译的文本');
             return;
         }
@@ -1477,10 +1984,10 @@ ${rulesText}`;
         }
         
         // 检查文本长度，给出提示
-        const textLength = inputText.length;
-        if (textLength > 3000) {
+        const totalLength = inputTexts.reduce((sum, text) => sum + text.length, 0);
+        if (totalLength > 3000) {
             const confirmLongText = confirm(
-                `检测到长文本（${textLength}个字符），翻译可能需要较长时间。\n\n` +
+                `检测到长文本（${totalLength}个字符），翻译可能需要较长时间。\n\n` +
                 `系统将自动分段翻译，请耐心等待。\n\n` +
                 `是否继续翻译？`
             );
@@ -1492,36 +1999,61 @@ ${rulesText}`;
         this.showLoading();
         
         try {
-            const response = await fetch('/api/translate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    text: inputText,
-                    prompt: translationPrompt,
-                    service_name: translationService
-                })
+            // 为每个输入文本创建翻译任务
+            const translationTasks = inputTexts.map(async (text, index) => {
+                try {
+                    const response = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            prompt: translationPrompt,
+                            service_name: translationService
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+                    
+                    // 提取数据（API返回的数据在result.data中）
+                    const data = result.data || result;
+                    
+                    return {
+                        index: index,
+                        data: data,
+                        success: true
+                    };
+                } catch (error) {
+                    console.error(`翻译文本 ${index + 1} 时发生错误:`, error);
+                    return {
+                        index: index,
+                        error: error.message || '翻译失败',
+                        success: false
+                    };
+                }
             });
+
+            // 等待所有翻译任务完成
+            const results = await Promise.all(translationTasks);
             
-            const result = await response.json();
+            // 更新UI显示结果
+            this.updateUIWithTranslationResults(results);
             
-            if (result.error) {
-                this.showError(result.error);
-                return;
-            }
+            // 更新当前结果
+            this.currentResult = results;
             
-            // 提取数据（API返回的数据在result.data中）
-            const data = result.data || result;
-            
-            this.updateUIWithTranslationResult(data);
-            
-            // 根据翻译结果显示不同的成功消息
-            if (data.chunks_translated && data.chunks_translated > 1) {
-                this.showSuccess(`翻译完成！共翻译了${data.chunks_translated}个文本段`);
-            } else {
-                this.showSuccess('翻译完成');
-            }
+                    // 根据翻译结果显示不同的成功消息
+        const successCount = results.filter(r => r.success).length;
+        if (successCount > 1) {
+            this.showEnhancedSuccess(`翻译完成！共翻译了${successCount}个文本段`);
+        } else {
+            this.showEnhancedSuccess('翻译完成');
+        }
             
         } catch (error) {
             console.error('翻译失败:', error);
@@ -1538,25 +2070,42 @@ ${rulesText}`;
     /**
      * 更新UI显示翻译结果
      */
-    updateUIWithTranslationResult(result) {
-        const processedText = document.getElementById('processedText');
-        
-        if (result.error) {
-            processedText.textContent = `翻译错误: ${result.error}`;
-            return;
+    updateUIWithTranslationResults(results) {
+        // 确保有足够的输出窗口
+        while (this.outputWindows.length < results.length) {
+            this.addOutputWindow();
         }
         
-        // 显示翻译结果
-        processedText.textContent = result.translated_text;
+        // 为每个结果分配一个输出窗口
+        results.forEach((result, index) => {
+            if (index < this.outputWindows.length) {
+                const outputWindow = this.outputWindows[index];
+                
+                if (result.success) {
+                    // 更新处理后的文本
+                    outputWindow.element.textContent = result.data.translated_text || '';
+                    
+                    // 更新统计信息
+                    if (result.data.statistics) {
+                        this.updateStatisticsForWindow(result.data.statistics, outputWindow);
+                    }
+
+                    // 更新分析结果
+                    if (result.data.analysis) {
+                        this.updateAnalysisForWindow(result.data.analysis, outputWindow);
+                    }
+                } else {
+                    // 显示错误信息
+                    outputWindow.element.textContent = `翻译失败: ${result.error}`;
+                    
+                    // 清空统计和分析信息
+                    this.clearWindowStats(outputWindow);
+                }
+            }
+        });
         
         // 切换到处理文本视图
         this.switchToView('processed');
-        
-        // 更新当前结果
-        this.currentResult = {
-            ...result,
-            processed_text: result.translated_text
-        };
     }
 
     /**
@@ -1564,7 +2113,9 @@ ${rulesText}`;
      */
     importRegexRules() {
         const fileInput = document.getElementById('regexFileInput');
-        fileInput.click();
+        if (fileInput) {
+            fileInput.click();
+        }
     }
 
     /**
@@ -1613,12 +2164,14 @@ ${rulesText}`;
                 
                 // 更新正则规则输入框
                 const regexReplaceRules = document.getElementById('regexReplaceRules');
-                const rulesText = rules.map(rule => {
-                    const [pattern, replacement] = rule;
-                    return `(r"${pattern}", r"${replacement}")`;
-                }).join(',\n');
-                regexReplaceRules.value = rulesText;
-                this.updateRegexRulesCharCount();
+                if (regexReplaceRules) {
+                    const rulesText = rules.map(rule => {
+                        const [pattern, replacement] = rule;
+                        return `(r"${pattern}", r"${replacement}")`;
+                    }).join(',\n');
+                    regexReplaceRules.value = rulesText;
+                    this.updateRegexRulesCharCount();
+                }
                 
                 this.showSuccess(`成功导入 ${rules.length} 条正则规则`);
                 
@@ -1643,7 +2196,11 @@ ${rulesText}`;
      */
     setupResizeHandle() {
         const resizeHandle = document.getElementById('resizeHandle');
+        if (!resizeHandle) return;
+        
         const container = document.querySelector('.text-windows-container');
+        if (!container) return;
+        
         let isResizing = false;
         let startX = 0;
         let startWidth = 0;
@@ -1695,6 +2252,8 @@ ${rulesText}`;
         const expandBtn = document.getElementById('expandRegexRules');
         const collapseBtn = document.getElementById('collapseRegexRules');
         
+        if (!content || !expandBtn || !collapseBtn) return;
+        
         // 初始化状态
         content.classList.add('collapsed');
         expandBtn.style.display = 'inline-flex';
@@ -1709,6 +2268,8 @@ ${rulesText}`;
         const expandBtn = document.getElementById('expandRegexRules');
         const collapseBtn = document.getElementById('collapseRegexRules');
         
+        if (!content || !expandBtn || !collapseBtn) return;
+        
         content.classList.remove('collapsed');
         content.classList.add('expanded');
         expandBtn.style.display = 'none';
@@ -1722,6 +2283,8 @@ ${rulesText}`;
         const content = document.querySelector('.regex-rules-content');
         const expandBtn = document.getElementById('expandRegexRules');
         const collapseBtn = document.getElementById('collapseRegexRules');
+        
+        if (!content || !expandBtn || !collapseBtn) return;
         
         content.classList.remove('expanded');
         content.classList.add('collapsed');
@@ -1748,7 +2311,9 @@ ${rulesText}`;
     switchTab(event) {
         event.preventDefault();
         const targetTab = event.currentTarget.getAttribute('data-tab');
-        this.switchToTab(targetTab);
+        if (targetTab) {
+            this.switchToTab(targetTab);
+        }
     }
 
     /**
@@ -1787,6 +2352,36 @@ ${rulesText}`;
         }
     }
 
+    /**
+     * 设置平滑动画
+     */
+    setupSmoothAnimations() {
+        // 为所有卡片添加进入动画
+        const cards = document.querySelectorAll('.stat-card, .analysis-card, .card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+
+        // 为按钮添加悬停动画
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-2px) scale(1.02)';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    }
+
     // ==================== 提示词管理方法 ====================
 
     /**
@@ -1816,12 +2411,14 @@ ${rulesText}`;
      */
     updatePromptList() {
         const promptList = document.getElementById('promptList');
-        const categoryFilter = document.getElementById('promptCategoryFilter').value;
+        const categoryFilter = document.getElementById('promptCategoryFilter');
+        
+        if (!promptList) return;
         
         // 过滤提示词
-        let filteredPrompts = this.prompts;
-        if (categoryFilter) {
-            filteredPrompts = this.prompts.filter(prompt => prompt.category === categoryFilter);
+        let filteredPrompts = this.prompts || [];
+        if (categoryFilter && categoryFilter.value) {
+            filteredPrompts = filteredPrompts.filter(prompt => prompt.category === categoryFilter.value);
         }
         
         if (filteredPrompts.length === 0) {
@@ -2219,11 +2816,460 @@ ${rulesText}`;
         };
         return categoryNames[category] || category;
     }
+
+    /**
+     * 使用多个结果更新UI
+     */
+    updateUIWithMultipleResults(results) {
+        // 确保有足够的输出窗口
+        while (this.outputWindows.length < results.length) {
+            this.addOutputWindow();
+        }
+        
+        // 为每个结果分配一个输出窗口
+        results.forEach((result, index) => {
+            if (index < this.outputWindows.length) {
+                const outputWindow = this.outputWindows[index];
+                
+                if (result.success) {
+                    // 更新处理后的文本
+                    outputWindow.element.textContent = result.data.processed_text || '';
+                    
+                    // 更新统计信息
+                    if (result.data.statistics) {
+                        this.updateStatisticsForWindow(result.data.statistics, outputWindow);
+                    }
+
+                    // 更新分析结果
+                    if (result.data.analysis) {
+                        this.updateAnalysisForWindow(result.data.analysis, outputWindow);
+                    }
+                } else {
+                    // 显示错误信息
+                    outputWindow.element.textContent = `处理失败: ${result.error}`;
+                    
+                    // 清空统计和分析信息
+                    this.clearWindowStats(outputWindow);
+                }
+            }
+        });
+        
+        // 切换到处理文本视图
+        this.switchToView('processed');
+    }
+
+    /**
+     * 为指定窗口更新统计信息
+     */
+    updateStatisticsForWindow(stats, outputWindow) {
+        if (!outputWindow.stats) return;
+        
+        // 基本统计
+        if (stats.basic && outputWindow.stats.basicStats) {
+            outputWindow.stats.basicStats.innerHTML = this.createStatItems(stats.basic);
+        }
+
+        // 字符类型统计
+        if (stats.character_types && outputWindow.stats.charStats) {
+            outputWindow.stats.charStats.innerHTML = this.createStatItems(stats.character_types);
+        }
+
+        // 词频统计
+        if (stats.word_frequency && outputWindow.stats.wordFreq) {
+            outputWindow.stats.wordFreq.innerHTML = this.createWordFrequencyList(stats.word_frequency);
+        }
+    }
+
+    /**
+     * 为指定窗口更新分析结果
+     */
+    updateAnalysisForWindow(analysis, outputWindow) {
+        if (!outputWindow.stats) return;
+        
+        // 可读性分析
+        if (analysis.readability && outputWindow.stats.readability) {
+            outputWindow.stats.readability.innerHTML = this.createReadabilityDisplay(analysis.readability);
+        }
+
+        // 情感分析
+        if (analysis.sentiment && outputWindow.stats.sentiment) {
+            outputWindow.stats.sentiment.innerHTML = this.createSentimentDisplay(analysis.sentiment);
+        }
+
+        // 语言特征
+        if (analysis.language_features && outputWindow.stats.languageFeatures) {
+            outputWindow.stats.languageFeatures.innerHTML = this.createLanguageFeaturesDisplay(analysis.language_features);
+        }
+    }
+
+    /**
+     * 清空指定窗口的统计信息
+     */
+    clearWindowStats(outputWindow) {
+        if (outputWindow.stats) {
+            if (outputWindow.stats.basicStats) outputWindow.stats.basicStats.innerHTML = '';
+            if (outputWindow.stats.charStats) outputWindow.stats.charStats.innerHTML = '';
+            if (outputWindow.stats.wordFreq) outputWindow.stats.wordFreq.innerHTML = '';
+            if (outputWindow.stats.readability) outputWindow.stats.readability.innerHTML = '';
+            if (outputWindow.stats.sentiment) outputWindow.stats.sentiment.innerHTML = '';
+            if (outputWindow.stats.languageFeatures) outputWindow.stats.languageFeatures.innerHTML = '';
+        }
+    }
+
+    /**
+     * 设置平滑动画
+     */
+    setupSmoothAnimations() {
+        // 为所有卡片添加进入动画
+        const cards = document.querySelectorAll('.stat-card, .analysis-card, .card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+
+        // 为按钮添加悬停动画
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-2px) scale(1.02)';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    }
+
+    /**
+     * 设置增强的键盘快捷键
+     */
+    setupKeyboardShortcuts() {
+        // 显示快捷键提示
+        this.showKeyboardShortcutsHelp();
+        
+        // 为输入框添加自动保存功能
+        this.setupAutoSave();
+    }
+
+    /**
+     * 显示键盘快捷键帮助
+     */
+    showKeyboardShortcutsHelp() {
+        const helpText = `
+            <div class="keyboard-shortcuts-help" style="
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: var(--surface-color);
+                padding: 16px;
+                border-radius: var(--border-radius-sm);
+                box-shadow: var(--shadow-lg);
+                border: 1px solid var(--border-light);
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                z-index: 999;
+                max-width: 300px;
+                opacity: 0.8;
+                transition: opacity 0.3s ease;
+            ">
+                <strong>键盘快捷键:</strong><br>
+                Ctrl+Enter: 处理文本<br>
+                Ctrl+Shift+C: 清空所有<br>
+                Ctrl+Shift+R: 正则处理<br>
+                Ctrl+Shift+T: 翻译<br>
+                Ctrl+Shift+1-4: 切换选项卡
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', helpText);
+        
+        // 点击隐藏帮助
+        const helpElement = document.querySelector('.keyboard-shortcuts-help');
+        helpElement.addEventListener('click', () => {
+            helpElement.style.opacity = '0';
+            setTimeout(() => helpElement.remove(), 300);
+        });
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            if (helpElement) {
+                helpElement.style.opacity = '0';
+                setTimeout(() => helpElement.remove(), 300);
+            }
+        }, 5000);
+    }
+
+    /**
+     * 设置自动保存功能
+     */
+    setupAutoSave() {
+        let autoSaveTimer;
+        
+        this.inputWindows.forEach(window => {
+            window.element.addEventListener('input', () => {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(() => {
+                    this.saveToLocalStorage();
+                }, 2000); // 2秒后自动保存
+            });
+        });
+    }
+
+    /**
+     * 保存到本地存储
+     */
+    saveToLocalStorage() {
+        const data = {
+            inputTexts: this.inputWindows.map(w => w.element.value),
+            regexRules: this.regexRules,
+            timestamp: Date.now()
+        };
+        
+        try {
+            localStorage.setItem('textProcessorData', JSON.stringify(data));
+        } catch (error) {
+            console.warn('无法保存到本地存储:', error);
+        }
+    }
+
+    /**
+     * 从本地存储恢复
+     */
+    restoreFromLocalStorage() {
+        try {
+            const data = localStorage.getItem('textProcessorData');
+            if (data) {
+                const parsed = JSON.parse(data);
+                const now = Date.now();
+                const oneDay = 24 * 60 * 60 * 1000;
+                
+                // 只恢复24小时内的数据
+                if (now - parsed.timestamp < oneDay) {
+                    if (parsed.inputTexts) {
+                        parsed.inputTexts.forEach((text, index) => {
+                            if (this.inputWindows[index]) {
+                                this.inputWindows[index].element.value = text;
+                            }
+                        });
+                    }
+                    
+                    if (parsed.regexRules) {
+                        this.regexRules = parsed.regexRules;
+                        this.updateRegexRulesList();
+                    }
+                    
+                    this.updateCharCount();
+                    this.updateRegexRulesCharCount();
+                }
+            }
+        } catch (error) {
+            console.warn('无法从本地存储恢复:', error);
+        }
+    }
+
+    /**
+     * 显示键盘快捷键帮助
+     */
+    showKeyboardShortcutsHelp() {
+        const helpText = `
+            <div class="keyboard-shortcuts-help" style="
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: var(--surface-color);
+                padding: 16px;
+                border-radius: var(--border-radius-sm);
+                box-shadow: var(--shadow-lg);
+                border: 1px solid var(--border-light);
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                z-index: 999;
+                max-width: 300px;
+                opacity: 0.8;
+                transition: opacity 0.3s ease;
+            ">
+                <strong>键盘快捷键:</strong><br>
+                Ctrl+Enter: 处理文本<br>
+                Ctrl+Shift+C: 清空所有<br>
+                Ctrl+Shift+R: 正则处理<br>
+                Ctrl+Shift+T: 翻译<br>
+                Ctrl+Shift+1-4: 切换选项卡
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', helpText);
+        
+        // 点击隐藏帮助
+        const helpElement = document.querySelector('.keyboard-shortcuts-help');
+        helpElement.addEventListener('click', () => {
+            helpElement.style.opacity = '0';
+            setTimeout(() => helpElement.remove(), 300);
+        });
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            if (helpElement) {
+                helpElement.style.opacity = '0';
+                setTimeout(() => helpElement.remove(), 300);
+            }
+        }, 5000);
+    }
+
+    /**
+     * 设置自动保存功能
+     */
+    setupAutoSave() {
+        let autoSaveTimer;
+        
+        this.inputWindows.forEach(window => {
+            window.element.addEventListener('input', () => {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(() => {
+                    this.saveToLocalStorage();
+                }, 2000); // 2秒后自动保存
+            });
+        });
+    }
+
+    /**
+     * 保存到本地存储
+     */
+    saveToLocalStorage() {
+        const data = {
+            inputTexts: this.inputWindows.map(w => w.element.value),
+            regexRules: this.regexRules,
+            timestamp: Date.now()
+        };
+        
+        try {
+            localStorage.setItem('textProcessorData', JSON.stringify(data));
+        } catch (error) {
+            console.warn('无法保存到本地存储:', error);
+        }
+    }
+
+    /**
+     * 从本地存储恢复
+     */
+    restoreFromLocalStorage() {
+        try {
+            const data = localStorage.getItem('textProcessorData');
+            if (data) {
+                const parsed = JSON.parse(data);
+                const now = Date.now();
+                const oneDay = 24 * 60 * 60 * 1000;
+                
+                // 只恢复24小时内的数据
+                if (now - parsed.timestamp < oneDay) {
+                    if (parsed.inputTexts) {
+                        parsed.inputTexts.forEach((text, index) => {
+                            if (this.inputWindows[index]) {
+                                this.inputWindows[index].element.value = text;
+                            }
+                        });
+                    }
+                    
+                    if (parsed.regexRules) {
+                        this.regexRules = parsed.regexRules;
+                        this.updateRegexRulesList();
+                    }
+                    
+                    this.updateCharCount();
+                    this.updateRegexRulesCharCount();
+                }
+            }
+        } catch (error) {
+            console.warn('无法从本地存储恢复:', error);
+        }
+    }
+
+    /**
+     * 增强的成功提示
+     */
+    showEnhancedSuccess(message, duration = 3000) {
+        const toast = document.getElementById('successToast');
+        const messageSpan = document.getElementById('successMessage');
+        
+        // 添加图标和动画
+        messageSpan.innerHTML = `
+            <i class="fas fa-check-circle" style="margin-right: 8px; animation: scaleIn 0.3s ease;"></i>
+            ${message}
+        `;
+        
+        this.showToast(toast);
+        
+        // 自动隐藏
+        setTimeout(() => {
+            this.hideToast(toast);
+        }, duration);
+    }
+
+    /**
+     * 增强的错误提示
+     */
+    showEnhancedError(message, duration = 4000) {
+        const toast = document.getElementById('errorToast');
+        const messageSpan = document.getElementById('errorMessage');
+        
+        // 添加图标和动画
+        messageSpan.innerHTML = `
+            <i class="fas fa-exclamation-triangle" style="margin-right: 8px; animation: scaleIn 0.3s ease;"></i>
+            ${message}
+        `;
+        
+        this.showToast(toast);
+        
+        // 自动隐藏
+        setTimeout(() => {
+            this.hideToast(toast);
+        }, duration);
+    }
+
+    /**
+     * 增强的错误提示
+     */
+    showEnhancedError(message, duration = 4000) {
+        const toast = document.getElementById('errorToast');
+        const messageSpan = document.getElementById('errorMessage');
+        
+        // 添加图标和动画
+        messageSpan.innerHTML = `
+            <i class="fas fa-exclamation-triangle" style="margin-right: 8px; animation: scaleIn 0.3s ease;"></i>
+            ${message}
+        `;
+        
+        this.showToast(toast);
+        
+        // 自动隐藏
+        setTimeout(() => {
+            this.hideToast(toast);
+        }, duration);
+    }
 }
 
 // 当DOM加载完成后初始化应用程序
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new TextProcessorApp();
+    
+    // 添加测试函数到控制台
+    window.testCopyFunction = () => {
+        console.log('Testing copy function...');
+        const copyBtn = document.querySelector('.copy-btn');
+        if (copyBtn) {
+            console.log('Found copy button:', copyBtn);
+            copyBtn.click();
+        } else {
+            console.log('No copy button found');
+        }
+    };
+    
+    console.log('TextProcessorApp initialized. Use testCopyFunction() to test copy functionality.');
 });
 
 // 导出类以供测试使用

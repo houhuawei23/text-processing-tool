@@ -48,25 +48,40 @@
                         <div class="input-window">
                             <div class="section-header">
                                 <h2><i class="fas fa-edit"></i> 输入文本</h2>
-                                <div class="text-counter">
-                                    <span id="charCount">0</span> 字符
+                                <div class="input-controls">
+                                    <div class="text-counter">
+                                        <span id="charCount">0</span> 字符
+                                    </div>
+                                    <div class="window-controls">
+                                        <button id="addInputWindow" class="btn btn-sm btn-outline" title="添加输入窗口">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button id="removeInputWindow" class="btn btn-sm btn-outline" title="移除输入窗口" disabled>
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="textarea-container">
-                                <textarea
-                                    id="inputText"
-                                    placeholder="请在此处粘贴或输入要处理的文本..."
-                                    rows="12"
-                                    style="resize: vertical; max-height: 800px; min-height: 200px;"
-                                ></textarea>
-                                <button
-                                    class="copy-btn"
-                                    data-target="inputText"
-                                    title="复制文本"
-                                >
-                                    <i class="fas fa-copy"></i>
-                                </button>
+                            <div class="input-windows-container">
+                                <div class="input-window-item active" data-window-id="1">
+                                    <div class="textarea-container">
+                                        <textarea
+                                            id="inputText1"
+                                            class="input-textarea"
+                                            placeholder="请在此处粘贴或输入要处理的文本..."
+                                            rows="12"
+                                            style="resize: vertical; max-height: 800px; min-height: 200px;"
+                                        ></textarea>
+                                        <button
+                                            class="copy-btn"
+                                            data-target="inputText1"
+                                            title="复制文本"
+                                        >
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -83,78 +98,92 @@
                                 <h2>
                                     <i class="fas fa-chart-bar"></i> 处理结果
                                 </h2>
-                                <div class="view-toggle">
-                                    <button
-                                        class="toggle-btn active"
-                                        data-view="processed"
-                                    >
-                                        处理文本
-                                    </button>
-                                    <button
-                                        class="toggle-btn"
-                                        data-view="statistics"
-                                    >
-                                        统计信息
-                                    </button>
-                                    <button
-                                        class="toggle-btn"
-                                        data-view="analysis"
-                                    >
-                                        文本分析
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="output-container">
-                                <!-- 处理文本视图 -->
-                                <div
-                                    id="processedView"
-                                    class="output-view active"
-                                >
-                                    <div class="text-output">
-                                        <pre id="processedText"></pre>
+                                <div class="output-controls">
+                                    <div class="view-toggle">
                                         <button
-                                            class="copy-btn"
-                                            data-target="processedText"
-                                            title="复制结果"
+                                            class="toggle-btn active"
+                                            data-view="processed"
                                         >
-                                            <i class="fas fa-copy"></i>
+                                            处理文本
+                                        </button>
+                                        <button
+                                            class="toggle-btn"
+                                            data-view="statistics"
+                                        >
+                                            统计信息
+                                        </button>
+                                        <button
+                                            class="toggle-btn"
+                                            data-view="analysis"
+                                        >
+                                            文本分析
+                                        </button>
+                                    </div>
+                                    <div class="window-controls">
+                                        <button id="addOutputWindow" class="btn btn-sm btn-outline" title="添加输出窗口">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button id="removeOutputWindow" class="btn btn-sm btn-outline" title="移除输出窗口" disabled>
+                                            <i class="fas fa-minus"></i>
                                         </button>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- 统计信息视图 -->
-                                <div id="statisticsView" class="output-view">
-                                    <div class="statistics-grid">
-                                        <div class="stat-card">
-                                            <h4>基本统计</h4>
-                                            <div id="basicStats"></div>
+                            <div class="output-windows-container">
+                                <div class="output-window-item active" data-window-id="1">
+                                    <div class="output-container">
+                                        <!-- 处理文本视图 -->
+                                        <div
+                                            id="processedView1"
+                                            class="output-view active"
+                                        >
+                                            <div class="text-output">
+                                                <pre id="processedText1">测试文本 - 请点击复制按钮测试复制功能</pre>
+                                                <button
+                                                    class="copy-btn"
+                                                    data-target="processedText1"
+                                                    title="复制结果"
+                                                >
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="stat-card">
-                                            <h4>字符类型</h4>
-                                            <div id="charStats"></div>
-                                        </div>
-                                        <div class="stat-card">
-                                            <h4>词频统计</h4>
-                                            <div id="wordFreq"></div>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <!-- 文本分析视图 -->
-                                <div id="analysisView" class="output-view">
-                                    <div class="analysis-grid">
-                                        <div class="analysis-card">
-                                            <h4>可读性分析</h4>
-                                            <div id="readability"></div>
+                                        <!-- 统计信息视图 -->
+                                        <div id="statisticsView1" class="output-view">
+                                            <div class="statistics-grid">
+                                                <div class="stat-card">
+                                                    <h4>基本统计</h4>
+                                                    <div id="basicStats1"></div>
+                                                </div>
+                                                <div class="stat-card">
+                                                    <h4>字符类型</h4>
+                                                    <div id="charStats1"></div>
+                                                </div>
+                                                <div class="stat-card">
+                                                    <h4>词频统计</h4>
+                                                    <div id="wordFreq1"></div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="analysis-card">
-                                            <h4>情感分析</h4>
-                                            <div id="sentiment"></div>
-                                        </div>
-                                        <div class="analysis-card">
-                                            <h4>语言特征</h4>
-                                            <div id="languageFeatures"></div>
+
+                                        <!-- 文本分析视图 -->
+                                        <div id="analysisView1" class="output-view">
+                                            <div class="analysis-grid">
+                                                <div class="analysis-card">
+                                                    <h4>可读性分析</h4>
+                                                    <div id="readability1"></div>
+                                                </div>
+                                                <div class="analysis-card">
+                                                    <h4>情感分析</h4>
+                                                    <div id="sentiment1"></div>
+                                                </div>
+                                                <div class="analysis-card">
+                                                    <h4>语言特征</h4>
+                                                    <div id="languageFeatures1"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
