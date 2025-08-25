@@ -143,27 +143,32 @@ class TestAppConfig(unittest.TestCase):
 class TestTranslationConfig(unittest.TestCase):
     """Test TranslationConfig class functionality."""
     
-    def test_basic_configuration(self):
-        """Test basic configuration values."""
+    def test_translation_config_constants(self):
+        """Test translation config constants."""
         self.assertIsNotNone(TranslationConfig.DEEPSEEK_API_KEY)
         self.assertIsNotNone(TranslationConfig.DEEPSEEK_API_URL)
         self.assertIsNotNone(TranslationConfig.DEEPSEEK_MODEL)
         self.assertIsNotNone(TranslationConfig.OPENAI_API_KEY)
         self.assertIsNotNone(TranslationConfig.OPENAI_API_URL)
         self.assertIsNotNone(TranslationConfig.OPENAI_MODEL)
+        self.assertIsNotNone(TranslationConfig.MICROSOFT_API_KEY)
+        self.assertIsNotNone(TranslationConfig.MICROSOFT_API_URL)
+        self.assertIsNotNone(TranslationConfig.MICROSOFT_REGION)
         self.assertIsNotNone(TranslationConfig.DEFAULT_TRANSLATION_SERVICE)
     
-    def test_api_urls(self):
-        """Test API URLs."""
+    def test_translation_config_urls(self):
+        """Test translation config URLs."""
         self.assertEqual(TranslationConfig.DEEPSEEK_API_URL, "https://api.deepseek.com/v1/chat/completions")
         self.assertEqual(TranslationConfig.OPENAI_API_URL, "https://api.openai.com/v1/chat/completions")
+        self.assertEqual(TranslationConfig.MICROSOFT_API_URL, "https://api.cognitive.microsofttranslator.com")
     
-    def test_models(self):
-        """Test model names."""
+    def test_translation_config_models(self):
+        """Test translation config models."""
         self.assertEqual(TranslationConfig.DEEPSEEK_MODEL, "deepseek-chat")
         self.assertEqual(TranslationConfig.OPENAI_MODEL, "gpt-3.5-turbo")
+        self.assertEqual(TranslationConfig.MICROSOFT_REGION, "southeastasia")
     
-    def test_default_service(self):
+    def test_default_translation_service(self):
         """Test default translation service."""
         self.assertEqual(TranslationConfig.DEFAULT_TRANSLATION_SERVICE, "deepseek")
     
@@ -171,28 +176,50 @@ class TestTranslationConfig(unittest.TestCase):
         """Test available services configuration."""
         services = TranslationConfig.AVAILABLE_SERVICES
         
-        self.assertIsInstance(services, dict)
+        # Check that all expected services are present
         self.assertIn('deepseek', services)
         self.assertIn('openai', services)
+        self.assertIn('microsoft', services)
         
-        # Check deepseek service
-        deepseek = services['deepseek']
-        self.assertIn('name', deepseek)
-        self.assertIn('api_key', deepseek)
-        self.assertIn('api_url', deepseek)
-        self.assertIn('model', deepseek)
-        self.assertIn('enabled', deepseek)
-        self.assertEqual(deepseek['name'], 'DeepSeek')
+        # Check service configurations
+        deepseek_config = services['deepseek']
+        self.assertIn('name', deepseek_config)
+        self.assertIn('api_key', deepseek_config)
+        self.assertIn('api_url', deepseek_config)
+        self.assertIn('model', deepseek_config)
+        self.assertIn('enabled', deepseek_config)
         
-        # Check openai service
-        openai = services['openai']
-        self.assertIn('name', openai)
-        self.assertIn('api_key', openai)
-        self.assertIn('api_url', openai)
-        self.assertIn('model', openai)
-        self.assertIn('enabled', openai)
-        self.assertEqual(openai['name'], 'OpenAI ChatGPT')
+        openai_config = services['openai']
+        self.assertIn('name', openai_config)
+        self.assertIn('api_key', openai_config)
+        self.assertIn('api_url', openai_config)
+        self.assertIn('model', openai_config)
+        self.assertIn('enabled', openai_config)
+        
+        microsoft_config = services['microsoft']
+        self.assertIn('name', microsoft_config)
+        self.assertIn('api_key', microsoft_config)
+        self.assertIn('api_url', microsoft_config)
+        self.assertIn('region', microsoft_config)
+        self.assertIn('model', microsoft_config)
+        self.assertIn('enabled', microsoft_config)
     
+    def test_available_models(self):
+        """Test available models configuration."""
+        models = TranslationConfig.AVAILABLE_MODELS
+        
+        self.assertIn('deepseek', models)
+        self.assertIn('openai', models)
+        self.assertIn('microsoft', models)
+        
+        # Check that models are lists
+        self.assertIsInstance(models['deepseek'], list)
+        self.assertIsInstance(models['openai'], list)
+        self.assertIsInstance(models['microsoft'], list)
+        
+        # Check Microsoft models (should have API version)
+        self.assertIn('api-version-3.0', models['microsoft'])
+
     def test_get_service_config(self):
         """Test get_service_config method."""
         # Test existing service
@@ -234,7 +261,7 @@ class TestTranslationConfig(unittest.TestCase):
         self.assertIsInstance(service_names, list)
         self.assertIn('deepseek', service_names)
         self.assertIn('openai', service_names)
-        self.assertEqual(len(service_names), 2)
+        self.assertEqual(len(service_names), 3)
     
     def test_validate_service_config(self):
         """Test validate_service_config method."""
@@ -272,7 +299,7 @@ class TestTranslationConfig(unittest.TestCase):
         self.assertIsInstance(summary['enabled_service_names'], list)
         self.assertIsInstance(summary['all_service_names'], list)
         
-        self.assertEqual(summary['total_services'], 2)
+        self.assertEqual(summary['total_services'], 3)
         self.assertEqual(summary['default_service'], 'deepseek')
         self.assertIn('deepseek', summary['all_service_names'])
         self.assertIn('openai', summary['all_service_names'])

@@ -10,6 +10,10 @@ import json
 from typing import Dict, Any, List
 from flask import session
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class TranslationConfig:
     """Translation service configuration class."""
@@ -24,6 +28,11 @@ class TranslationConfig:
     OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
     OPENAI_MODEL = "gpt-3.5-turbo"
 
+    # Microsoft Translator API configuration
+    MICROSOFT_API_KEY = os.environ.get("MICROSOFT_API_KEY", "")
+    MICROSOFT_API_URL = "https://api.cognitive.microsofttranslator.com"
+    MICROSOFT_REGION = os.environ.get("MICROSOFT_REGION", "southeastasia")
+
     # Default translation service
     DEFAULT_TRANSLATION_SERVICE = "deepseek"
 
@@ -31,6 +40,7 @@ class TranslationConfig:
     AVAILABLE_MODELS = {
         "deepseek": ["deepseek-chat", "deepseek-coder", "deepseek-chat-33b"],
         "openai": ["gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-4", "gpt-4-turbo", "gpt-4-32k"],
+        "microsoft": ["api-version-3.0"],  # Microsoft Translator uses API version instead of models
     }
 
     # Available translation services
@@ -48,6 +58,14 @@ class TranslationConfig:
             "api_url": OPENAI_API_URL,
             "model": OPENAI_MODEL,
             "enabled": bool(OPENAI_API_KEY),
+        },
+        "microsoft": {
+            "name": "Microsoft Translator",
+            "api_key": MICROSOFT_API_KEY,
+            "api_url": MICROSOFT_API_URL,
+            "region": MICROSOFT_REGION,
+            "model": "api-version-3.0",
+            "enabled": bool(MICROSOFT_API_KEY),
         },
     }
 

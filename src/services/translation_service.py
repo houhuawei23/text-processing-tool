@@ -9,6 +9,7 @@ import json
 import requests
 import time
 import re
+import uuid
 from typing import Dict, Any, Optional, List
 from ..config.translation_config import TranslationConfig
 
@@ -109,6 +110,8 @@ class TranslationService:
                     return self._translate_with_deepseek(text, prompt, service_name, self.timeout_short)
                 elif service_name == 'openai':
                     return self._translate_with_openai(text, prompt, service_name, self.timeout_short)
+                elif service_name == 'microsoft':
+                    return self._translate_with_microsoft(text, prompt, service_name, self.timeout_short)
                 else:
                     return {
                         'error': f'Unsupported translation service: {service_name}',
@@ -167,6 +170,8 @@ class TranslationService:
                     result = self._translate_with_deepseek(chunk, chunk_prompt, service_name, self.timeout_long)
                 elif service_name == 'openai':
                     result = self._translate_with_openai(chunk, chunk_prompt, service_name, self.timeout_long)
+                elif service_name == 'microsoft':
+                    result = self._translate_with_microsoft(chunk, chunk_prompt, service_name, self.timeout_long)
                 else:
                     return {
                         'error': f'Unsupported translation service: {service_name}',
@@ -449,6 +454,173 @@ class TranslationService:
                     'service_used': service_name,
                     'prompt_used': prompt
                 }
+    
+    def _translate_with_microsoft(self, text: str, prompt: str, service_name: str, timeout: int) -> Dict[str, Any]:
+        """
+        Translate using Microsoft Translator API.
+        
+        Args:
+            text: Text to translate
+            prompt: Translation prompt (used to determine target language)
+            service_name: Service name
+            timeout: Request timeout
+            
+        Returns:
+            Translation result
+        """
+        config = TranslationConfig.get_service_config(service_name)
+        
+        # Check if API key is valid
+        api_key = config.get('api_key', '')
+        region = config.get('region', 'southeastasia')
+        
+        # Debug logging
+        from flask import current_app
+        current_app.logger.info(f"DEBUG: Microsoft service config: {config}")
+        current_app.logger.info(f"DEBUG: Microsoft API key length: {len(api_key) if api_key else 0}")
+        current_app.logger.info(f"DEBUG: Microsoft region: {region}")
+        
+        if not api_key or api_key == '••••••••••••••••':
+            return {
+                'error': 'API key not configured or invalid. Please configure your API key in the translation settings.',
+                'translated_text': '',
+                'service_used': service_name,
+                'prompt_used': prompt
+            }
+        
+        # Determine target language from prompt
+        target_lang = self._extract_target_language_from_prompt(prompt)
+        
+        # Build API URL
+        path = "/translate?api-version=3.0"
+        params = f"&to={target_lang}"
+        url = config['api_url'] + path + params
+        
+        headers = {
+            "Ocp-Apim-Subscription-Key": api_key,
+            "Ocp-Apim-Subscription-Region": region,
+            "Content-Type": "application/json",
+            "X-ClientTraceId": str(uuid.uuid4()),
+        }
+        
+        # Prepare request body
+        body = [{"text": text}]
+        
+        try:
+            response = self.session.post(
+                url,
+                headers=headers,
+                json=body,
+                timeout=timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Extract translated text from response
+                if result and len(result) > 0:
+                    translations = result[0].get('translations', [])
+                    if translations and len(translations) > 0:
+                        translated_text = translations[0].get('text', '')
+                        
+                        return {
+                            'translated_text': translated_text,
+                            'service_used': service_name,
+                            'prompt_used': prompt,
+                            'error': None,
+                            'target_language': target_lang
+                        }
+                
+                return {
+                    'error': 'No translation result received from Microsoft Translator',
+                    'translated_text': '',
+                    'service_used': service_name,
+                    'prompt_used': prompt
+                }
+            else:
+                # Parse error response
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('error', {}).get('message', 'Unknown error')
+                    return {
+                        'error': f'Microsoft Translator API错误: {error_message}',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+                except:
+                    return {
+                        'error': f'Microsoft Translator API错误: {response.status_code} - {response.text}',
+                        'translated_text': '',
+                        'service_used': service_name,
+                        'prompt_used': prompt
+                    }
+                    
+        except requests.exceptions.Timeout:
+            return {
+                'error': 'Microsoft Translator API请求超时，请稍后重试',
+                'translated_text': '',
+                'service_used': service_name,
+                'prompt_used': prompt
+            }
+        except Exception as e:
+            return {
+                'error': f'Microsoft Translator API请求失败: {str(e)}',
+                'translated_text': '',
+                'service_used': service_name,
+                'prompt_used': prompt
+            }
+    
+    def _extract_target_language_from_prompt(self, prompt: str) -> str:
+        """
+        Extract target language from translation prompt.
+        
+        Args:
+            prompt: Translation prompt
+            
+        Returns:
+            Target language code (e.g., 'zh', 'en', 'ja')
+        """
+        prompt_lower = prompt.lower()
+        
+        # Common language mappings
+        language_mappings = {
+            '中文': 'zh',
+            'chinese': 'zh',
+            'china': 'zh',
+            '英文': 'en',
+            'english': 'en',
+            '英语': 'en',
+            '日文': 'ja',
+            'japanese': 'ja',
+            '日语': 'ja',
+            '韩文': 'ko',
+            'korean': 'ko',
+            '韩语': 'ko',
+            '法文': 'fr',
+            'french': 'fr',
+            '法语': 'fr',
+            '德文': 'de',
+            'german': 'de',
+            '德语': 'de',
+            '西班牙文': 'es',
+            'spanish': 'es',
+            '西班牙语': 'es',
+            '俄文': 'ru',
+            'russian': 'ru',
+            '俄语': 'ru',
+            '阿拉伯文': 'ar',
+            'arabic': 'ar',
+            '阿拉伯语': 'ar',
+        }
+        
+        # Check for language keywords in prompt
+        for keyword, lang_code in language_mappings.items():
+            if keyword in prompt_lower:
+                return lang_code
+        
+        # Default to Chinese if no specific language is mentioned
+        return 'zh'
     
     def get_available_services(self) -> Dict[str, Dict[str, Any]]:
         """

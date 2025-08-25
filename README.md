@@ -233,11 +233,13 @@ python -m pytest --cov=src tests/
 
 ### Translation Services
 
-- **DeepSeek**: Fast, reliable translation
-- **OpenAI**: High-quality translation with GPT models
+- **DeepSeek**: Fast, reliable translation with advanced language models
+- **OpenAI**: High-quality translation with GPT models for natural language processing
+- **Microsoft Translator**: Professional translation service with support for 100+ languages
 - **Long Text Support**: Automatic text chunking for large documents
-- **Retry Mechanism**: Automatic retry on failures
+- **Retry Mechanism**: Automatic retry on failures with exponential backoff
 - **Progress Tracking**: Real-time progress for long translations
+- **Language Detection**: Automatic target language detection from prompts
 
 ### Prompt Management
 

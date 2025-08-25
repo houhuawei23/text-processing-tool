@@ -392,6 +392,31 @@ class TestTranslationServiceIntegration(unittest.TestCase):
         self.assertEqual(result['service_used'], 'openai')
         self.assertEqual(result['prompt_used'], self.test_prompt)
     
+    @patch('src.services.translation_service.translation_service._translate_with_microsoft')
+    @patch('src.services.translation_service.TranslationConfig.is_service_available')
+    def test_microsoft_translation_integration(self, mock_is_available, mock_microsoft):
+        """Test Microsoft Translator integration."""
+        mock_is_available.return_value = True
+        mock_microsoft.return_value = {
+            'translated_text': '你好世界！这是一个测试。',
+            'service_used': 'microsoft',
+            'prompt_used': self.test_prompt,
+            'error': None,
+            'target_language': 'zh'
+        }
+        
+        result = translation_service.translate_text(self.test_text, self.test_prompt, 'microsoft')
+        
+        self.assertIsNotNone(result)
+        self.assertIn('translated_text', result)
+        self.assertIn('service_used', result)
+        self.assertIn('prompt_used', result)
+        self.assertIsNone(result['error'])
+        
+        self.assertEqual(result['service_used'], 'microsoft')
+        self.assertEqual(result['prompt_used'], self.test_prompt)
+        self.assertEqual(result['target_language'], 'zh')
+    
     def test_translation_service_availability(self):
         """Test translation service availability."""
         services = translation_service.get_available_services()
