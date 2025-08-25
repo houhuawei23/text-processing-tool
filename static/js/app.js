@@ -25,7 +25,6 @@ class TextProcessorApp {
         this.setupViewToggle();
         this.setupToastHandlers();
         this.updateRegexRulesList();  // 初始化正则规则列表
-        this.setupResizeHandle();  // 设置拖动分隔线
         this.setupRegexRulesWindow();  // 设置正则规则窗口控制
         this.setupTabSwitching();  // 设置选项卡切换
         this.setupSmoothAnimations();  // 设置平滑动画
@@ -450,6 +449,7 @@ class TextProcessorApp {
      */
     updateCharCount() {
         const charCount = document.getElementById('charCount');
+        const textCounter = charCount.closest('.text-counter');
         let totalCount = 0;
         
         // 计算所有输入窗口的字符总数
@@ -459,16 +459,22 @@ class TextProcessorApp {
         
         charCount.textContent = totalCount.toLocaleString();
         
-        // 根据字符数改变计数器颜色
-        const counter = charCount.parentElement.parentElement;
+        // 根据字符数改变整个text-counter div的背景颜色和样式类
+        // 先移除所有状态类
+        textCounter.classList.remove('counter-empty', 'counter-low', 'counter-medium', 'counter-high');
+        
         if (totalCount === 0) {
-            counter.style.background = '#6b7280';
-        } else if (totalCount < 100) {
-            counter.style.background = '#10b981';
-        } else if (totalCount < 1000) {
-            counter.style.background = '#f59e0b';
+            textCounter.style.background = 'var(--counter-empty)';
+            textCounter.classList.add('counter-empty');
+        } else if (totalCount < 500) {
+            textCounter.style.background = 'var(--counter-low)';
+            textCounter.classList.add('counter-low');
+        } else if (totalCount < 2500) {
+            textCounter.style.background = 'var(--counter-medium)';
+            textCounter.classList.add('counter-medium');
         } else {
-            counter.style.background = '#ef4444';
+            textCounter.style.background = 'var(--counter-high)';
+            textCounter.classList.add('counter-high');
         }
     }
 
@@ -479,17 +485,25 @@ class TextProcessorApp {
         const regexReplaceRules = document.getElementById('regexReplaceRules');
         const regexCount = regexReplaceRules.value.length;
         const regexCharCount = document.getElementById('regexRulesCharCount');
+        const textCounter = regexCharCount.closest('.text-counter');
         regexCharCount.textContent = regexCount.toLocaleString();
 
-        const counter = regexCharCount.parentElement;
+        // 根据字符数改变整个text-counter div的背景颜色和样式类
+        // 先移除所有状态类
+        textCounter.classList.remove('counter-empty', 'counter-low', 'counter-medium', 'counter-high');
+        
         if (regexCount === 0) {
-            counter.style.background = '#6b7280';
-        } else if (regexCount < 100) {
-            counter.style.background = '#10b981';
-        } else if (regexCount < 1000) {
-            counter.style.background = '#f59e0b';
+            textCounter.style.background = 'var(--counter-empty)';
+            textCounter.classList.add('counter-empty');
+        } else if (regexCount < 500) {
+            textCounter.style.background = 'var(--counter-low)';
+            textCounter.classList.add('counter-low');
+        } else if (regexCount < 2500) {
+            textCounter.style.background = 'var(--counter-medium)';
+            textCounter.classList.add('counter-medium');
         } else {
-            counter.style.background = '#ef4444';
+            textCounter.style.background = 'var(--counter-high)';
+            textCounter.classList.add('counter-high');
         }
     }
 
@@ -2191,58 +2205,7 @@ ${rulesText}`;
         event.target.value = '';
     }
 
-    /**
-     * 设置拖动分隔线功能
-     */
-    setupResizeHandle() {
-        const resizeHandle = document.getElementById('resizeHandle');
-        if (!resizeHandle) return;
-        
-        const container = document.querySelector('.text-windows-container');
-        if (!container) return;
-        
-        let isResizing = false;
-        let startX = 0;
-        let startWidth = 0;
-
-        resizeHandle.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            startX = e.clientX;
-            startWidth = container.offsetWidth;
-            
-            // 添加拖动样式
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-            
-            e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
-            
-            const deltaX = e.clientX - startX;
-            const newWidth = startWidth + deltaX;
-            
-            // 限制最小宽度
-            const minWidth = 300;
-            const maxWidth = window.innerWidth - 100;
-            
-            if (newWidth >= minWidth && newWidth <= maxWidth) {
-                const leftWidth = Math.max(minWidth, (newWidth - 8) / 2);
-                const rightWidth = newWidth - 8 - leftWidth;
-                
-                container.style.gridTemplateColumns = `${leftWidth}px 8px ${rightWidth}px`;
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (isResizing) {
-                isResizing = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            }
-        });
-    }
+    /* 移除拖动分隔线功能 */
 
     /**
      * 设置正则规则窗口控制
