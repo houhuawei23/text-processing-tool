@@ -10,7 +10,19 @@ class TextProcessorApp {
         this.regexRules = [];  // 存储正则规则
         this.inputWindows = [];  // 存储输入窗口信息
         this.outputWindows = [];  // 存储输出窗口信息
-        this.nextWindowId = 2;  // 下一个窗口ID
+        this.nextInputWindowId = 2;  // 下一个输入窗口ID
+        this.nextOutputWindowId = 2;  // 下一个输出窗口ID
+        
+        // 任务队列相关
+        this.taskQueue = [];
+        this.nextTaskId = 1;
+        this.currentTaskStatus = 'all';
+        this.latestTaskIds = [];  // 记录最近创建的任务ID列表
+        this.hasAutoDisplayedResult = false;  // 标记是否已经自动显示过结果
+        
+        // 调试模式
+        this.debugMode = false;  // 设置为true可以查看关键词提取的调试信息
+        
         this.init();
     }
 
@@ -146,6 +158,15 @@ class TextProcessorApp {
         
         // 初始化提示词管理
         this.loadPrompts();
+        
+        // 任务队列相关事件
+        document.getElementById('clearCompletedTasks').addEventListener('click', () => this.clearCompletedTasks());
+        document.getElementById('refreshTasks').addEventListener('click', () => this.refreshTasks());
+        
+        // 任务状态标签切换事件
+        document.querySelectorAll('.task-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTaskTab(e.target.dataset.taskStatus));
+        });
     }
 
     /**
@@ -171,7 +192,7 @@ class TextProcessorApp {
      * 添加输入窗口
      */
     addInputWindow() {
-        const windowId = this.nextWindowId++;
+        const windowId = this.nextInputWindowId++;
         const container = document.querySelector('.input-windows-container');
         
         // 创建新的输入窗口HTML
@@ -238,6 +259,9 @@ class TextProcessorApp {
             windowElement.remove();
         }
         
+        // 重新编号剩余的输入窗口
+        this.renumberInputWindows();
+        
         // 更新窗口控制按钮状态
         this.updateWindowControlButtons();
         
@@ -248,10 +272,58 @@ class TextProcessorApp {
     }
 
     /**
+     * 重新编号输入窗口
+     */
+    renumberInputWindows() {
+        // 重新编号所有输入窗口，从1开始
+        this.inputWindows.forEach((window, index) => {
+            const newId = index + 1;
+            const windowElement = document.querySelector(`[data-window-id="${window.id}"]`);
+            
+            if (windowElement) {
+                // 更新DOM元素的ID和属性
+                windowElement.setAttribute('data-window-id', newId);
+                
+                // 更新textarea的ID
+                const textarea = windowElement.querySelector('textarea');
+                if (textarea) {
+                    const oldId = textarea.id;
+                    textarea.id = `inputText${newId}`;
+                    
+                    // 更新复制按钮的data-target
+                    const copyBtn = windowElement.querySelector('.copy-btn');
+                    if (copyBtn) {
+                        copyBtn.setAttribute('data-target', `inputText${newId}`);
+                    }
+                }
+                
+                // 更新窗口对象的ID
+                window.id = newId;
+            }
+        });
+        
+        // 重置输入窗口ID计数器
+        this.nextInputWindowId = this.inputWindows.length + 1;
+        
+        // 重新绑定所有输入窗口的事件
+        this.rebindInputEvents();
+    }
+
+    /**
+     * 重新绑定所有输入窗口的事件
+     */
+    rebindInputEvents() {
+        // 为所有输入窗口重新绑定事件
+        this.inputWindows.forEach(window => {
+            this.bindSingleInputEvents(window);
+        });
+    }
+
+    /**
      * 添加输出窗口
      */
     addOutputWindow() {
-        const windowId = this.nextWindowId++;
+        const windowId = this.nextOutputWindowId++;
         const container = document.querySelector('.output-windows-container');
         
         // 创建新的输出窗口HTML
@@ -365,6 +437,9 @@ class TextProcessorApp {
             windowElement.remove();
         }
         
+        // 重新编号剩余的输出窗口
+        this.renumberOutputWindows();
+        
         // 更新窗口控制按钮状态
         this.updateWindowControlButtons();
         
@@ -372,6 +447,100 @@ class TextProcessorApp {
         this.rebindCopyButtons();
         
         this.showSuccess(`已移除输出窗口 ${lastWindow.id}`);
+    }
+
+    /**
+     * 重新编号输出窗口
+     */
+    renumberOutputWindows() {
+        // 重新编号所有输出窗口，从1开始
+        this.outputWindows.forEach((window, index) => {
+            const newId = index + 1;
+            const windowElement = document.querySelector(`[data-window-id="${window.id}"]`);
+            
+            if (windowElement) {
+                // 更新DOM元素的ID和属性
+                windowElement.setAttribute('data-window-id', newId);
+                
+                // 更新所有视图的ID
+                const processedView = windowElement.querySelector(`#processedView${window.id}`);
+                const statisticsView = windowElement.querySelector(`#statisticsView${window.id}`);
+                const analysisView = windowElement.querySelector(`#analysisView${window.id}`);
+                
+                if (processedView) {
+                    processedView.id = `processedView${newId}`;
+                    const processedText = processedView.querySelector(`#processedText${window.id}`);
+                    if (processedText) {
+                        processedText.id = `processedText${newId}`;
+                        
+                        // 更新复制按钮的data-target
+                        const copyBtn = processedView.querySelector('.copy-btn');
+                        if (copyBtn) {
+                            copyBtn.setAttribute('data-target', `processedText${newId}`);
+                        }
+                    }
+                }
+                
+                if (statisticsView) {
+                    statisticsView.id = `statisticsView${newId}`;
+                    // 更新统计视图中的元素ID
+                    const basicStats = statisticsView.querySelector(`#basicStats${window.id}`);
+                    const charStats = statisticsView.querySelector(`#charStats${window.id}`);
+                    const wordFreq = statisticsView.querySelector(`#wordFreq${window.id}`);
+                    
+                    if (basicStats) basicStats.id = `basicStats${newId}`;
+                    if (charStats) charStats.id = `charStats${newId}`;
+                    if (wordFreq) wordFreq.id = `wordFreq${newId}`;
+                }
+                
+                if (analysisView) {
+                    analysisView.id = `analysisView${window.id}`;
+                    // 更新分析视图中的元素ID
+                    const readability = analysisView.querySelector(`#readability${window.id}`);
+                    const sentiment = analysisView.querySelector(`#sentiment${window.id}`);
+                    const languageFeatures = analysisView.querySelector(`#languageFeatures${window.id}`);
+                    
+                    if (readability) readability.id = `readability${newId}`;
+                    if (sentiment) sentiment.id = `sentiment${newId}`;
+                    if (languageFeatures) languageFeatures.id = `languageFeatures${newId}`;
+                }
+                
+                // 更新窗口对象的ID
+                window.id = newId;
+                
+                // 更新窗口对象中的引用
+                window.element = document.getElementById(`processedText${newId}`);
+                window.views.processed = document.getElementById(`processedView${newId}`);
+                window.views.statistics = document.getElementById(`statisticsView${window.id}`);
+                window.views.analysis = document.getElementById(`analysisView${window.id}`);
+                window.stats.basicStats = document.getElementById(`basicStats${newId}`);
+                window.stats.charStats = document.getElementById(`charStats${newId}`);
+                window.stats.wordFreq = document.getElementById(`wordFreq${newId}`);
+                window.stats.readability = document.getElementById(`readability${newId}`);
+                window.stats.sentiment = document.getElementById(`sentiment${newId}`);
+                window.stats.languageFeatures = document.getElementById(`languageFeatures${newId}`);
+            }
+        });
+        
+        // 重置输出窗口ID计数器
+        this.nextOutputWindowId = this.outputWindows.length + 1;
+        
+        // 重新绑定所有输出窗口的事件
+        this.rebindOutputEvents();
+    }
+
+    /**
+     * 重新绑定所有输出窗口的事件
+     */
+    rebindOutputEvents() {
+        // 为所有输出窗口重新绑定事件
+        this.outputWindows.forEach(window => {
+            // 重新绑定复制按钮事件
+            const copyBtn = document.querySelector(`[data-target="processedText${window.id}"]`);
+            if (copyBtn) {
+                copyBtn.addEventListener('click', (e) => this.copyText(e));
+            }
+        });
     }
 
     /**
@@ -535,6 +704,25 @@ class TextProcessorApp {
     }
 
     /**
+     * 切换输出窗口视图
+     */
+    switchView(outputWindow, targetView) {
+        // 更新按钮状态
+        const toggleButtons = document.querySelectorAll('.toggle-btn');
+        toggleButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === targetView);
+        });
+        
+        // 更新输出窗口的视图显示
+        Object.values(outputWindow.views).forEach(view => {
+            view.classList.remove('active');
+        });
+        if (outputWindow.views[targetView]) {
+            outputWindow.views[targetView].classList.add('active');
+        }
+    }
+
+    /**
      * 设置提示框处理器
      */
     setupToastHandlers() {
@@ -563,74 +751,17 @@ class TextProcessorApp {
             return;
         }
 
-        this.isProcessing = true;
-        this.showLoading();
-
-        try {
-            // 获取处理选项
-            const operations = this.getSelectedOperations();
-            
-            // 为每个输入文本创建处理任务
-            const processingTasks = inputTexts.map(async (text, index) => {
-                try {
-                    // 调用API
-                    const response = await fetch('/api/process', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            text: text,
-                            operations: operations
-                        })
-                    });
-
-                    const result = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(result.error || '处理失败');
-                    }
-
-                    if (result.error) {
-                        throw new Error(result.error);
-                    }
-
-                    // 提取数据（API返回的数据在result.data中）
-                    const data = result.data || result;
-                    
-                    return {
-                        index: index,
-                        data: data,
-                        success: true
-                    };
-                } catch (error) {
-                    console.error(`处理文本 ${index + 1} 时发生错误:`, error);
-                    return {
-                        index: index,
-                        error: error.message || '处理失败',
-                        success: false
-                    };
-                }
-            });
-
-            // 等待所有处理任务完成
-            const results = await Promise.all(processingTasks);
-            
-            // 更新UI显示结果
-            this.updateUIWithMultipleResults(results);
-            
-            // 保存当前结果
-            this.currentResult = results;
-            
-            this.showEnhancedSuccess(`文本处理完成，共处理 ${results.filter(r => r.success).length} 个文本`);
-
-        } catch (error) {
-            console.error('处理文本时发生错误:', error);
-            this.showError(error.message || '处理文本时发生错误');
-        } finally {
-            this.hideLoading();
-            this.isProcessing = false;
-        }
+        // 获取处理选项
+        const operations = this.getSelectedOperations();
+        
+        // 创建文本处理任务并添加到队列
+        this.createTextProcessingTasks(inputTexts, operations);
+        
+        // 显示成功提示
+        this.showEnhancedSuccess(`已创建 ${inputTexts.length} 个文本处理任务，请在任务队列中查看进度`);
+        
+        // 自动切换到任务队列选项卡
+        this.switchTab({ target: { dataset: { tab: 'tasks' } } });
     }
 
     /**
@@ -650,75 +781,14 @@ class TextProcessorApp {
             return;
         }
 
-        if (this.isProcessing) {
-            return;
-        }
-
-        this.isProcessing = true;
-        this.showLoading();
-
-        try {
-            // 为每个输入文本创建处理任务
-            const processingTasks = inputTexts.map(async (text, index) => {
-                try {
-                    // 调用正则处理API
-                    const response = await fetch('/api/regex', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            text: text,
-                            regex_rules: this.regexRules
-                        })
-                    });
-
-                    const result = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(result.error || '正则处理失败');
-                    }
-
-                    if (result.error) {
-                        throw new Error(result.error);
-                    }
-
-                    // 提取数据（API返回的数据在result.data中）
-                    const data = result.data || result;
-                    
-                    return {
-                        index: index,
-                        data: data,
-                        success: true
-                    };
-                } catch (error) {
-                    console.error(`正则处理文本 ${index + 1} 时发生错误:`, error);
-                    return {
-                        index: index,
-                        error: error.message || '正则处理失败',
-                        success: false
-                    };
-                }
-            });
-
-            // 等待所有处理任务完成
-            const results = await Promise.all(processingTasks);
-            
-            // 更新UI显示结果
-            this.updateUIWithRegexResults(results);
-            
-            // 保存当前结果
-            this.currentResult = results;
-            
-            this.showEnhancedSuccess(`正则处理完成，共处理 ${results.filter(r => r.success).length} 个文本`);
-
-        } catch (error) {
-            console.error('正则处理时发生错误:', error);
-            this.showError(error.message || '正则处理时发生错误');
-        } finally {
-            this.hideLoading();
-            this.isProcessing = false;
-        }
+        // 创建正则处理任务并添加到队列
+        this.createRegexProcessingTasks(inputTexts);
+        
+        // 显示成功提示
+        this.showEnhancedSuccess(`已创建 ${inputTexts.length} 个正则处理任务，请在任务队列中查看进度`);
+        
+        // 自动切换到任务队列选项卡
+        this.switchTab({ target: { dataset: { tab: 'tasks' } } });
     }
 
     /**
@@ -1155,29 +1225,19 @@ class TextProcessorApp {
     }
 
     /**
-     * 显示加载状态
+     * 显示加载状态（已废弃，改为后台处理）
      */
     showLoading() {
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingText = document.querySelector('.loading-spinner p');
-        
-        // 检查是否是长文本翻译
-        const totalLength = this.inputWindows.reduce((sum, window) => sum + window.element.value.trim().length, 0);
-        if (totalLength > 3000) {
-            loadingText.textContent = '正在翻译长文本，请耐心等待...';
-        } else {
-            loadingText.textContent = '正在处理文本...';
-        }
-        
-        loadingOverlay.classList.add('show');
+        // 不再显示阻塞式加载状态，改为后台处理
+        console.log('任务已在后台开始处理，请查看任务队列了解进度');
     }
 
     /**
-     * 隐藏加载状态
+     * 隐藏加载状态（已废弃，改为后台处理）
      */
     hideLoading() {
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        loadingOverlay.classList.remove('show');
+        // 不再需要隐藏加载状态，因为已改为后台处理
+        console.log('任务处理完成');
     }
 
     /**
@@ -1997,88 +2057,30 @@ ${rulesText}`;
             return;
         }
         
-        // 检查文本长度，给出提示
-        const totalLength = inputTexts.reduce((sum, text) => sum + text.length, 0);
-        if (totalLength > 3000) {
-            const confirmLongText = confirm(
-                `检测到长文本（${totalLength}个字符），翻译可能需要较长时间。\n\n` +
-                `系统将自动分段翻译，请耐心等待。\n\n` +
-                `是否继续翻译？`
-            );
-            if (!confirmLongText) {
-                return;
+        // 检查每个输入文本框的长度，给出警告提示
+        let hasLongText = false;
+        inputTexts.forEach((text, index) => {
+            if (text.length > 1000) {
+                hasLongText = true;
+                this.showEnhancedWarning(
+                    `输入文本框 ${index + 1} 的文本过长（${text.length}个字符），翻译可能需要较长时间。`
+                );
             }
+        });
+        
+        // 如果存在长文本，等待一段时间让用户看到警告
+        if (hasLongText) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
         
-        this.showLoading();
+        // 创建翻译任务并添加到队列
+        this.createTranslationTasks(inputTexts, translationPrompt, translationService);
         
-        try {
-            // 为每个输入文本创建翻译任务
-            const translationTasks = inputTexts.map(async (text, index) => {
-                try {
-                    const response = await fetch('/api/translate', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            text: text,
-                            prompt: translationPrompt,
-                            service_name: translationService
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.error) {
-                        throw new Error(result.error);
-                    }
-                    
-                    // 提取数据（API返回的数据在result.data中）
-                    const data = result.data || result;
-                    
-                    return {
-                        index: index,
-                        data: data,
-                        success: true
-                    };
-                } catch (error) {
-                    console.error(`翻译文本 ${index + 1} 时发生错误:`, error);
-                    return {
-                        index: index,
-                        error: error.message || '翻译失败',
-                        success: false
-                    };
-                }
-            });
-
-            // 等待所有翻译任务完成
-            const results = await Promise.all(translationTasks);
-            
-            // 更新UI显示结果
-            this.updateUIWithTranslationResults(results);
-            
-            // 更新当前结果
-            this.currentResult = results;
-            
-                    // 根据翻译结果显示不同的成功消息
-        const successCount = results.filter(r => r.success).length;
-        if (successCount > 1) {
-            this.showEnhancedSuccess(`翻译完成！共翻译了${successCount}个文本段`);
-        } else {
-            this.showEnhancedSuccess('翻译完成');
-        }
-            
-        } catch (error) {
-            console.error('翻译失败:', error);
-            if (error.name === 'TypeError' && error.message.includes('timeout')) {
-                this.showError('翻译超时，请稍后重试或减少文本长度');
-            } else {
-                this.showError('翻译失败，请检查网络连接');
-            }
-        } finally {
-            this.hideLoading();
-        }
+        // 显示成功提示
+        this.showEnhancedSuccess(`已创建 ${inputTexts.length} 个翻译任务，请在任务队列中查看进度`);
+        
+        // 自动切换到任务队列选项卡
+        this.switchTab({ target: { dataset: { tab: 'tasks' } } });
     }
 
     /**
@@ -3195,11 +3197,11 @@ ${rulesText}`;
     }
 
     /**
-     * 增强的错误提示
+     * 增强的警告提示
      */
-    showEnhancedError(message, duration = 4000) {
-        const toast = document.getElementById('errorToast');
-        const messageSpan = document.getElementById('errorMessage');
+    showEnhancedWarning(message, duration = 4000) {
+        const toast = document.getElementById('warningToast');
+        const messageSpan = document.getElementById('warningMessage');
         
         // 添加图标和动画
         messageSpan.innerHTML = `
@@ -3213,6 +3215,1222 @@ ${rulesText}`;
         setTimeout(() => {
             this.hideToast(toast);
         }, duration);
+    }
+
+    /**
+     * 创建正则处理任务
+     */
+    createRegexProcessingTasks(inputTexts) {
+        // 清空之前的最新任务ID列表
+        this.latestTaskIds = [];
+        this.hasAutoDisplayedResult = false;  // 重置自动显示标志
+        
+        inputTexts.forEach((text, index) => {
+            const task = {
+                id: this.nextTaskId++,
+                type: 'regex-processing',
+                status: 'pending',
+                input: text,
+                regexRules: this.regexRules,
+                createdAt: new Date(),
+                progress: 0,
+                result: null,
+                error: null
+            };
+            
+            this.taskQueue.push(task);
+            this.latestTaskIds.push(task.id);  // 记录任务ID
+            
+            // 开始后台处理
+            this.processRegexTaskInBackground(task);
+        });
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+    }
+
+    /**
+     * 创建文本处理任务
+     */
+    createTextProcessingTasks(inputTexts, operations) {
+        // 清空之前的最新任务ID列表
+        this.latestTaskIds = [];
+        this.hasAutoDisplayedResult = false;  // 重置自动显示标志
+        
+        inputTexts.forEach((text, index) => {
+            const task = {
+                id: this.nextTaskId++,
+                type: 'text-processing',
+                status: 'pending',
+                input: text,
+                operations: operations,
+                createdAt: new Date(),
+                progress: 0,
+                result: null,
+                error: null
+            };
+            
+            this.taskQueue.push(task);
+            this.latestTaskIds.push(task.id);  // 记录任务ID
+            
+            // 开始后台处理
+            this.processTextTaskInBackground(task);
+        });
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+    }
+
+    /**
+     * 创建翻译任务
+     */
+    createTranslationTasks(inputTexts, translationPrompt, translationService) {
+        // 清空之前的最新任务ID列表
+        this.latestTaskIds = [];
+        this.hasAutoDisplayedResult = false;  // 重置自动显示标志
+        
+        inputTexts.forEach((text, index) => {
+            const task = {
+                id: this.nextTaskId++,
+                type: 'translation',
+                status: 'pending',
+                input: text,
+                prompt: translationPrompt,
+                service: translationService,
+                createdAt: new Date(),
+                progress: 0,
+                result: null,
+                error: null
+            };
+            
+            this.taskQueue.push(task);
+            this.latestTaskIds.push(task.id);  // 记录任务ID
+            
+            // 开始后台处理
+            this.processTaskInBackground(task);
+        });
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+    }
+
+    /**
+     * 后台处理正则处理任务
+     */
+    async processRegexTaskInBackground(task) {
+        try {
+            // 更新任务状态为处理中
+            task.status = 'processing';
+            task.progress = 10;
+            this.updateTasksDisplay();
+            
+            // 模拟进度更新
+            const progressInterval = setInterval(() => {
+                if (task.status === 'processing' && task.progress < 90) {
+                    task.progress += Math.random() * 20;
+                    this.updateTasksDisplay();
+                }
+            }, 1000);
+            
+            // 执行正则处理
+            const response = await fetch('/api/regex', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: task.input,
+                    regex_rules: task.regexRules
+                })
+            });
+
+            const result = await response.json();
+
+            clearInterval(progressInterval);
+
+            if (!response.ok) {
+                throw new Error(result.error || '正则处理失败');
+            }
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            // 任务完成
+            task.status = 'completed';
+            task.progress = 100;
+            task.result = result.data || result;
+            task.completedAt = new Date();
+            
+        } catch (error) {
+            console.error(`任务 ${task.id} 处理失败:`, error);
+            task.status = 'failed';
+            task.error = error.message || '正则处理失败';
+            task.failedAt = new Date();
+        }
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+        
+        // 检查是否为最新任务，如果是则自动显示结果
+        this.checkAndAutoDisplayResult(task);
+    }
+
+    /**
+     * 后台处理文本处理任务
+     */
+    async processTextTaskInBackground(task) {
+        try {
+            // 更新任务状态为处理中
+            task.status = 'processing';
+            task.progress = 10;
+            this.updateTasksDisplay();
+            
+            // 模拟进度更新
+            const progressInterval = setInterval(() => {
+                if (task.status === 'processing' && task.progress < 90) {
+                    task.progress += Math.random() * 20;
+                    this.updateTasksDisplay();
+                }
+            }, 1000);
+            
+            // 执行文本处理
+            const response = await fetch('/api/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: task.input,
+                    operations: task.operations
+                })
+            });
+
+            const result = await response.json();
+
+            clearInterval(progressInterval);
+
+            if (!response.ok) {
+                throw new Error(result.error || '处理失败');
+            }
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            // 任务完成
+            task.status = 'completed';
+            task.progress = 100;
+            task.result = result.data || result;
+            task.completedAt = new Date();
+            
+        } catch (error) {
+            console.error(`任务 ${task.id} 处理失败:`, error);
+            task.status = 'failed';
+            task.error = error.message || '处理失败';
+            task.failedAt = new Date();
+        }
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+        
+        // 检查是否为最新任务，如果是则自动显示结果
+        this.checkAndAutoDisplayResult(task);
+    }
+
+    /**
+     * 后台处理任务
+     */
+    async processTaskInBackground(task) {
+        try {
+            // 更新任务状态为处理中
+            task.status = 'processing';
+            task.progress = 10;
+            this.updateTasksDisplay();
+            
+            // 模拟进度更新
+            const progressInterval = setInterval(() => {
+                if (task.status === 'processing' && task.progress < 90) {
+                    task.progress += Math.random() * 20;
+                    this.updateTasksDisplay();
+                }
+            }, 1000);
+            
+            // 执行翻译
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: task.input,
+                    prompt: task.prompt,
+                    service_name: task.service
+                })
+            });
+            
+            const result = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            // 任务完成
+            task.status = 'completed';
+            task.progress = 100;
+            task.result = result.data || result;
+            task.completedAt = new Date();
+            
+        } catch (error) {
+            console.error(`任务 ${task.id} 处理失败:`, error);
+            task.status = 'failed';
+            task.error = error.message || '处理失败';
+            task.failedAt = new Date();
+        }
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+        
+        // 检查是否为最新任务，如果是则自动显示结果
+        this.checkAndAutoDisplayResult(task);
+    }
+
+    /**
+     * 更新任务队列显示
+     */
+    updateTasksDisplay() {
+        const tasksList = document.getElementById('tasksList');
+        if (!tasksList) return;
+        
+        const filteredTasks = this.filterTasksByStatus(this.currentTaskStatus);
+        
+        tasksList.innerHTML = filteredTasks.map(task => this.createTaskHTML(task)).join('');
+        
+        // 绑定任务点击事件
+        tasksList.querySelectorAll('.task-item').forEach((item, index) => {
+            item.addEventListener('click', () => this.showTaskDetail(filteredTasks[index]));
+        });
+        
+        // 绑定复制按钮事件
+        this.bindTaskCopyButtons();
+    }
+
+    /**
+     * 根据状态筛选任务
+     */
+    filterTasksByStatus(status) {
+        if (status === 'all') {
+            return this.taskQueue;
+        }
+        return this.taskQueue.filter(task => task.status === status);
+    }
+
+    /**
+     * 根据任务类型获取对应的CSS类名
+     */
+    getTaskTypeClass(taskType) {
+        const typeClassMap = {
+            'translation': 'task-type-translation',
+            'text-processing': 'task-type-text-processing',
+            'regex-processing': 'task-type-regex-processing'
+        };
+        return typeClassMap[taskType] || 'task-type-default';
+    }
+
+    /**
+     * 根据任务类型获取中文显示名称
+     */
+    getTaskTypeDisplayName(taskType) {
+        const typeNameMap = {
+            'translation': '翻译',
+            'text-processing': '文本处理',
+            'regex-processing': '正则处理'
+        };
+        return typeNameMap[taskType] || taskType;
+    }
+
+    /**
+     * 根据任务类型获取对应的图标
+     */
+    getTaskTypeIcon(taskType) {
+        const typeIconMap = {
+            'translation': 'fas fa-language',
+            'text-processing': 'fas fa-cogs',
+            'regex-processing': 'fas fa-magic'
+        };
+        return typeIconMap[taskType] || 'fas fa-tasks';
+    }
+
+    /**
+     * 提取文本关键词
+     */
+    extractKeywords(text, maxKeywords = 3) {
+        if (!text || typeof text !== 'string') {
+            return [];
+        }
+        
+        // 清理文本
+        const cleanText = text.trim();
+        if (cleanText.length === 0) {
+            return [];
+        }
+        
+        // 如果文本很短（少于10个字符），直接返回整个文本
+        if (cleanText.length <= 10) {
+            return [cleanText];
+        }
+        
+        // 分割文本为句子
+        const sentences = cleanText.split(/[。！？.!?]/).filter(s => s.trim().length > 0);
+        
+        // 如果只有一个句子或句子很少，按词分割
+        if (sentences.length <= 1) {
+            return this.extractKeywordsFromWords(cleanText, maxKeywords);
+        }
+        
+        // 从每个句子中提取关键词
+        const keywords = [];
+        for (const sentence of sentences) {
+            if (keywords.length >= maxKeywords) break;
+            
+            const sentenceKeywords = this.extractKeywordsFromWords(sentence, 1);
+            if (sentenceKeywords.length > 0) {
+                keywords.push(...sentenceKeywords);
+            }
+        }
+        
+        // 如果没有提取到关键词，尝试其他方法
+        if (keywords.length === 0) {
+            return this.extractKeywordsFallback(cleanText, maxKeywords);
+        }
+        
+        return keywords.slice(0, maxKeywords);
+    }
+
+    /**
+     * 关键词提取的备用方法
+     */
+    extractKeywordsFallback(text, maxKeywords = 3) {
+        // 移除标点符号
+        const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, ' ');
+        
+        // 分割为字符（针对中文）或单词（针对英文）
+        const isChinese = /[\u4e00-\u9fa5]/.test(cleanText);
+        
+        if (isChinese) {
+            // 中文文本：按字符分割，选择较长的连续字符
+            const chars = cleanText.split(/\s+/).join('').split('');
+            const wordGroups = [];
+            let currentGroup = '';
+            
+            for (const char of chars) {
+                if (char.trim()) {
+                    currentGroup += char;
+                } else {
+                    if (currentGroup.length >= 2) {
+                        wordGroups.push(currentGroup);
+                    }
+                    currentGroup = '';
+                }
+            }
+            
+            if (currentGroup.length >= 2) {
+                wordGroups.push(currentGroup);
+            }
+            
+            // 按长度排序，选择最长的几个
+            return wordGroups
+                .sort((a, b) => b.length - a.length)
+                .slice(0, maxKeywords);
+        } else {
+            // 英文文本：按单词分割
+            const words = cleanText.split(/\s+/).filter(word => word.length >= 3);
+            return words.slice(0, maxKeywords);
+        }
+    }
+
+    /**
+     * 从单词中提取关键词
+     */
+    extractKeywordsFromWords(text, maxKeywords = 3) {
+        // 移除标点符号和特殊字符
+        const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, ' ');
+        
+        // 分割为单词
+        const words = cleanText.split(/\s+/).filter(word => word.length > 0);
+        
+        // 过滤掉常见的停用词和短词
+        const stopWords = new Set([
+            '的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这',
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'
+        ]);
+        
+        const filteredWords = words.filter(word => {
+            // 过滤掉停用词
+            if (stopWords.has(word.toLowerCase())) return false;
+            
+            // 过滤掉太短的词（少于2个字符）
+            if (word.length < 2) return false;
+            
+            // 过滤掉纯数字
+            if (/^\d+$/.test(word)) return false;
+            
+            return true;
+        });
+        
+        // 按长度排序，优先选择较长的词
+        const sortedWords = filteredWords.sort((a, b) => b.length - a.length);
+        
+        return sortedWords.slice(0, maxKeywords);
+    }
+
+    /**
+     * 生成任务标题（包含关键词）
+     */
+    generateTaskTitle(task) {
+        const typeDisplayName = this.getTaskTypeDisplayName(task.type);
+        const keywords = this.extractKeywords(task.input);
+        
+        // 调试信息
+        if (this.debugMode) {
+            console.log('关键词提取:', {
+                input: task.input.substring(0, 50) + (task.input.length > 50 ? '...' : ''),
+                keywords: keywords,
+                taskType: task.type
+            });
+        }
+        
+        if (keywords.length === 0) {
+            return `${typeDisplayName}任务`;
+        }
+        
+        // 将关键词用"："连接
+        const keywordString = keywords.join(', ');
+        
+        // 增加关键词显示长度，让标题显示更多内容
+        const maxKeywordLength = 60;
+        const truncatedKeywords = keywordString.length > maxKeywordLength 
+            ? keywordString.substring(0, maxKeywordLength) + '...'
+            : keywordString;
+        
+        return `${typeDisplayName}任务：${truncatedKeywords}`;
+    }
+
+    /**
+     * 生成任务结果预览
+     */
+    generateResultPreview(task) {
+        if (task.status !== 'completed' || !task.result) {
+            return null;
+        }
+        
+        let resultText = '';
+        
+        // 根据任务类型提取结果文本
+        if (task.type === 'translation') {
+            resultText = task.result.translated_text || task.result.text || '';
+        } else if (task.type === 'text-processing') {
+            resultText = task.result.processed_text || task.result.text || '';
+        } else if (task.type === 'regex-processing') {
+            resultText = task.result.processed_text || task.result.text || '';
+        } else {
+            if (typeof task.result === 'string') {
+                resultText = task.result;
+            } else {
+                resultText = task.result.processed_text || task.result.text || '';
+            }
+        }
+        
+        if (!resultText) {
+            return null;
+        }
+        
+        // 获取第一行内容作为预览
+        const firstLine = resultText.split('\n')[0].trim();
+        if (!firstLine) {
+            return null;
+        }
+        
+        // 限制预览长度，避免过长
+        const maxLength = 100;
+        if (firstLine.length > maxLength) {
+            return this.escapeHtml(firstLine.substring(0, maxLength) + '...');
+        }
+        
+        return this.escapeHtml(firstLine);
+    }
+
+    /**
+     * 创建任务HTML
+     */
+    createTaskHTML(task) {
+        const statusClass = `task-status ${task.status}`;
+        const statusText = this.getStatusText(task.status);
+        const progress = task.progress || 0;
+        
+        // 生成结果预览
+        const resultPreview = this.generateResultPreview(task);
+        
+        // 根据任务类型添加对应的CSS类
+        const taskTypeClass = this.getTaskTypeClass(task.type);
+        
+        return `
+            <div class="task-item ${taskTypeClass}" data-task-id="${task.id}">
+                <div class="task-header">
+                    <div class="task-title">
+                        <i class="${this.getTaskTypeIcon(task.type)}"></i>
+                        <span title="${this.generateTaskTitle(task)}">${this.generateTaskTitle(task)}</span>
+                    </div>
+                    <div class="task-header-actions">
+                        ${task.status === 'completed' && task.result ? `
+                            <button class="btn btn-sm btn-primary copy-task-result-btn" data-task-id="${task.id}" title="复制结果">
+                                <i class="fas fa-copy"></i> 复制
+                            </button>
+                        ` : ''}
+                        <div class="${statusClass}">${statusText}</div>
+                    </div>
+                </div>
+                <div class="task-meta">
+                    <span><i class="fas fa-clock"></i> ${this.formatTime(task.createdAt)}</span>
+                    <span class="task-type-badge ${taskTypeClass}"><i class="fas fa-tag"></i> ${this.getTaskTypeDisplayName(task.type)}</span>
+                    <span><i class="fas fa-server"></i> ${task.service}</span>
+                </div>
+                ${task.status === 'processing' ? `
+                    <div class="task-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">${Math.round(progress)}%</span>
+                    </div>
+                ` : ''}
+                ${resultPreview ? `
+                    <div class="task-result-preview">
+                        <div class="preview-label">结果预览:</div>
+                        <div class="preview-content">${resultPreview}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * 获取状态文本
+     */
+    getStatusText(status) {
+        const statusMap = {
+            pending: '待处理',
+            processing: '处理中',
+            completed: '已完成',
+            failed: '失败'
+        };
+        return statusMap[status] || status;
+    }
+
+    /**
+     * 格式化时间
+     */
+    formatTime(date) {
+        return new Date(date).toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    /**
+     * 显示任务详情
+     */
+    showTaskDetail(task) {
+        const modal = document.getElementById('taskDetailModal');
+        const infoDiv = document.getElementById('taskDetailInfo');
+        const inputDiv = document.getElementById('taskDetailInput');
+        const outputDiv = document.getElementById('taskDetailOutput');
+        
+        // 清理之前可能存在的应用结果按钮
+        const existingApplyButton = modal.querySelector('.apply-result-btn');
+        if (existingApplyButton) {
+            existingApplyButton.remove();
+        }
+        
+        // 任务信息
+        infoDiv.innerHTML = `
+            <div class="task-detail-content">
+                <p><strong>任务ID:</strong> ${task.id}</p>
+                <p><strong>类型:</strong> ${task.type}</p>
+                <p><strong>状态:</strong> <span class="task-status ${task.status}">${this.getStatusText(task.status)}</span></p>
+                <p><strong>创建时间:</strong> ${new Date(task.createdAt).toLocaleString('zh-CN')}</p>
+                ${task.completedAt ? `<p><strong>完成时间:</strong> ${new Date(task.completedAt).toLocaleString('zh-CN')}</p>` : ''}
+                ${task.failedAt ? `<p><strong>失败时间:</strong> ${new Date(task.failedAt).toLocaleString('zh-CN')}</p>` : ''}
+                ${task.error ? `<p><strong>错误信息:</strong> ${task.error}</p>` : ''}
+            </div>
+        `;
+        
+        // 输入内容
+        inputDiv.innerHTML = `
+            <div class="task-detail-content">
+                <pre style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;">${task.input}</pre>
+            </div>
+        `;
+        
+        // 输出结果
+        if (task.result) {
+            let resultContent = '';
+            let processedText = '';
+            
+            // 根据任务类型提取处理好的文本
+            if (task.type === 'translation') {
+                // 翻译任务：提取翻译后的文本
+                processedText = task.result.translated_text || task.result.text || '';
+                if (typeof task.result === 'string') {
+                    processedText = task.result;
+                }
+            } else if (task.type === 'text-processing') {
+                // 文本处理任务：提取处理后的文本
+                processedText = task.result.processed_text || task.result.text || '';
+                if (typeof task.result === 'string') {
+                    processedText = task.result;
+                }
+            } else if (task.type === 'regex-processing') {
+                // 正则处理任务：提取处理后的文本
+                processedText = task.result.processed_text || task.result.text || '';
+                if (typeof task.result === 'string') {
+                    processedText = task.result;
+                }
+            } else {
+                // 其他类型任务
+                if (typeof task.result === 'string') {
+                    processedText = task.result;
+                } else {
+                    processedText = task.result.processed_text || task.result.text || '';
+                }
+            }
+            
+            if (processedText) {
+                // 为每个任务生成唯一的ID
+                const taskResultId = `task-result-${task.id}`;
+                
+                resultContent = `
+                    <div class="task-result-container">
+                        <div class="task-result-header">
+                            <h5>处理结果</h5>
+                            <button class="btn btn-sm btn-primary copy-result-btn" data-task-id="${task.id}">
+                                <i class="fas fa-copy"></i> 复制结果
+                            </button>
+                        </div>
+                        <div class="task-result-text">
+                            <pre style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;">${this.escapeHtml(processedText)}</pre>
+                        </div>
+                    </div>
+                `;
+                
+                // 将处理后的文本存储到任务对象中，避免HTML属性长度限制
+                task.processedTextForCopy = processedText;
+            } else {
+                resultContent = `
+                    <div class="task-detail-content">
+                        <p style="color: var(--text-secondary);">未找到处理结果文本</p>
+                    </div>
+                `;
+            }
+            
+            outputDiv.innerHTML = resultContent;
+            
+            // 绑定复制按钮事件
+            this.bindCopyResultButtons();
+        } else if (task.error) {
+            outputDiv.innerHTML = `
+                <div class="task-detail-content">
+                    <p style="color: var(--error-color);">${task.error}</p>
+                </div>
+            `;
+        } else {
+            outputDiv.innerHTML = `
+                <div class="task-detail-content">
+                    <p style="color: var(--text-secondary);">任务尚未完成</p>
+                </div>
+            `;
+        }
+        
+        // 显示模态框
+        modal.classList.add('show');
+        
+        // 如果任务已完成且有结果，添加应用结果按钮
+        if (task.status === 'completed' && task.result) {
+            const applyButton = document.createElement('button');
+            applyButton.className = 'btn btn-primary apply-result-btn';
+            applyButton.innerHTML = '<i class="fas fa-check"></i> 应用结果到输出窗口';
+            applyButton.onclick = () => this.applyTaskResult(task);
+            
+            // 将按钮添加到模态框底部
+            const modalBody = modal.querySelector('.task-modal-body');
+            modalBody.appendChild(applyButton);
+        }
+    }
+
+    /**
+     * 关闭任务详情模态框
+     */
+    closeTaskDetailModal() {
+        const modal = document.getElementById('taskDetailModal');
+        
+        // 清理所有动态添加的应用结果按钮
+        const applyButtons = modal.querySelectorAll('.apply-result-btn');
+        applyButtons.forEach(button => button.remove());
+        
+        modal.classList.remove('show');
+    }
+
+    /**
+     * 切换任务状态标签
+     */
+    switchTaskTab(status) {
+        this.currentTaskStatus = status;
+        
+        // 更新标签按钮状态
+        document.querySelectorAll('.task-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.taskStatus === status);
+        });
+        
+        // 更新任务列表显示
+        this.updateTasksDisplay();
+    }
+
+    /**
+     * 清空已完成的任务
+     */
+    clearCompletedTasks() {
+        this.taskQueue = this.taskQueue.filter(task => task.status !== 'completed');
+        this.updateTasksDisplay();
+        this.showEnhancedSuccess('已清空已完成的任务');
+    }
+
+    /**
+     * 刷新任务列表
+     */
+    refreshTasks() {
+        this.updateTasksDisplay();
+        this.showEnhancedSuccess('任务列表已刷新');
+    }
+
+    /**
+     * 绑定复制结果按钮事件
+     */
+    bindCopyResultButtons() {
+        const copyButtons = document.querySelectorAll('.copy-result-btn');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.copyTaskResult(button);
+            });
+        });
+    }
+
+    /**
+     * 绑定任务列表中的复制按钮事件
+     */
+    bindTaskCopyButtons() {
+        const copyButtons = document.querySelectorAll('.copy-task-result-btn');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // 阻止事件冒泡，避免触发任务详情
+                this.copyTaskResultFromList(button);
+            });
+        });
+    }
+
+    /**
+     * 检查并自动显示最新任务的结果
+     */
+    checkAndAutoDisplayResult(completedTask) {
+        // 检查是否为最新创建的任务
+        if (this.latestTaskIds.includes(completedTask.id)) {
+            console.log('检测到最新任务完成，自动显示结果:', completedTask);
+            
+            // 如果是第一个完成的任务，自动显示结果
+            if (completedTask.status === 'completed' && completedTask.result) {
+                // 检查是否已经显示过结果，避免重复显示
+                if (!this.hasAutoDisplayedResult) {
+                    this.autoDisplayTaskResult(completedTask);
+                    this.hasAutoDisplayedResult = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * 自动显示任务结果到输出窗口
+     */
+    autoDisplayTaskResult(task) {
+        try {
+            // 确保有足够的输出窗口
+            while (this.outputWindows.length < 1) {
+                this.addOutputWindow();
+            }
+            
+            const outputWindow = this.outputWindows[0];
+            const processedView = outputWindow.views.processed;
+            
+            if (!processedView) {
+                console.error('找不到处理文本视图');
+                return;
+            }
+            
+            const processedText = processedView.querySelector('.text-output pre');
+            
+            if (!processedText) {
+                console.error('找不到处理文本输出元素');
+                return;
+            }
+            
+            // 根据任务类型格式化结果
+            let formattedResult = '';
+            
+            if (task.type === 'translation') {
+                // 翻译任务的结果处理
+                if (task.result.translated_text) {
+                    formattedResult = task.result.translated_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else if (task.type === 'text-processing') {
+                // 文本处理任务的结果处理
+                if (task.result.processed_text) {
+                    formattedResult = task.result.processed_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else if (task.type === 'regex-processing') {
+                // 正则处理任务的结果处理
+                if (task.result.processed_text) {
+                    formattedResult = task.result.processed_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else {
+                // 其他类型任务的结果处理
+                if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            }
+            
+            // 确保输出窗口是可见的
+            processedView.classList.add('active');
+            
+            // 更新输出窗口的内容
+            processedText.textContent = formattedResult;
+            
+            // 更新统计信息（如果有的话）
+            console.log('检查统计信息:', {
+                hasStatistics: !!task.result.statistics,
+                statistics: task.result.statistics,
+                fullResult: task.result
+            });
+            
+            if (task.result.statistics) {
+                this.updateStatisticsForWindow(task.result.statistics, outputWindow);
+            }
+            
+            // 更新分析结果（如果有的话）
+            console.log('检查分析结果:', {
+                hasAnalysis: !!task.result.analysis,
+                analysis: task.result.analysis,
+                fullResult: task.result
+            });
+            
+            if (task.result.analysis) {
+                this.updateAnalysisForWindow(task.result.analysis, outputWindow);
+            }
+            
+            // 切换到处理文本视图
+            this.switchView(outputWindow, 'processed');
+            
+            // 显示成功提示
+            this.showEnhancedSuccess(`任务"${task.title}"已完成，结果已自动显示`);
+            
+            // 调试信息
+            console.log('任务结果已自动显示:', {
+                taskType: task.type,
+                taskTitle: task.title,
+                formattedResult: formattedResult,
+                hasStatistics: !!task.result.statistics,
+                hasAnalysis: !!task.result.analysis,
+                outputElement: processedText
+            });
+            
+        } catch (error) {
+            console.error('自动显示任务结果时发生错误:', error);
+        }
+    }
+
+    /**
+     * 从任务列表中复制任务结果
+     */
+    copyTaskResultFromList(button) {
+        const taskId = parseInt(button.getAttribute('data-task-id'));
+        const task = this.taskQueue.find(t => t.id === taskId);
+        
+        if (!task || !task.result) {
+            this.showError('没有内容可复制');
+            return;
+        }
+        
+        // 根据任务类型提取要复制的文本
+        let textToCopy = '';
+        
+        if (task.type === 'translation') {
+            textToCopy = task.result.translated_text || task.result.text || '';
+        } else if (task.type === 'text-processing') {
+            textToCopy = task.result.processed_text || task.result.text || '';
+        } else if (task.type === 'regex-processing') {
+            textToCopy = task.result.processed_text || task.result.text || '';
+        } else {
+            if (typeof task.result === 'string') {
+                textToCopy = task.result;
+            } else {
+                textToCopy = task.result.processed_text || task.result.text || '';
+            }
+        }
+        
+        if (!textToCopy || !textToCopy.trim()) {
+            this.showError('没有内容可复制');
+            return;
+        }
+        
+        this.copyTextToClipboard(textToCopy, button);
+    }
+
+    /**
+     * 通用复制文本到剪贴板方法
+     */
+    copyTextToClipboard(text, button) {
+        try {
+            // 尝试使用现代 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    this.showEnhancedSuccess('内容已复制到剪贴板');
+                    
+                    // 更新复制按钮状态
+                    if (button) {
+                        button.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                        button.classList.add('copied');
+                        setTimeout(() => {
+                            button.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    this.fallbackCopyTextToClipboard(text, button);
+                });
+            } else {
+                // 降级到传统方法
+                this.fallbackCopyTextToClipboard(text, button);
+            }
+        } catch (error) {
+            console.error('复制文本时发生错误:', error);
+            this.fallbackCopyTextToClipboard(text, button);
+        }
+    }
+
+    /**
+     * 降级复制文本到剪贴板的方法
+     */
+    fallbackCopyTextToClipboard(text, button) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                this.showEnhancedSuccess('内容已复制到剪贴板（使用降级方法）');
+                
+                // 更新复制按钮状态
+                if (button) {
+                    button.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                        button.classList.remove('copied');
+                    }, 2000);
+                }
+            } else {
+                this.showError('复制失败，请手动选择文本复制');
+            }
+        } catch (err) {
+            console.error('降级复制方法失败:', err);
+            this.showError('复制失败，请手动选择文本复制');
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+
+    /**
+     * 复制任务结果到剪贴板（从任务详情模态框）
+     */
+    copyTaskResult(button) {
+        // 从按钮的data-task-id属性获取任务ID，然后从任务对象中获取文本
+        const taskId = parseInt(button.getAttribute('data-task-id'));
+        const task = this.taskQueue.find(t => t.id === taskId);
+        
+        console.log('复制任务结果:', {
+            button: button,
+            taskId: taskId,
+            task: task,
+            hasProcessedText: task ? !!task.processedTextForCopy : false,
+            textLength: task ? (task.processedTextForCopy ? task.processedTextForCopy.length : 0) : 0
+        });
+        
+        if (!task || !task.processedTextForCopy) {
+            this.showError('没有内容可复制');
+            return;
+        }
+        
+        const text = task.processedTextForCopy;
+        this.copyTextToClipboard(text, button);
+    }
+
+
+
+    /**
+     * 应用任务结果到输出窗口
+     */
+    applyTaskResult(task) {
+        try {
+            // 确保有足够的输出窗口
+            while (this.outputWindows.length < 1) {
+                this.addOutputWindow();
+            }
+            
+            const outputWindow = this.outputWindows[0];
+            const processedView = outputWindow.views.processed;
+            
+            if (!processedView) {
+                console.error('找不到处理文本视图');
+                this.showError('找不到输出窗口，请检查页面结构');
+                return;
+            }
+            
+            const processedText = processedView.querySelector('.text-output pre');
+            
+            if (!processedText) {
+                console.error('找不到处理文本输出元素');
+                this.showError('找不到输出元素，请检查页面结构');
+                return;
+            }
+            
+            // 根据任务类型格式化结果
+            let formattedResult = '';
+            
+            if (task.type === 'translation') {
+                // 翻译任务的结果处理
+                if (task.result.translated_text) {
+                    formattedResult = task.result.translated_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else if (task.type === 'text-processing') {
+                // 文本处理任务的结果处理
+                if (task.result.processed_text) {
+                    formattedResult = task.result.processed_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else if (task.type === 'regex-processing') {
+                // 正则处理任务的结果处理
+                if (task.result.processed_text) {
+                    formattedResult = task.result.processed_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else {
+                // 其他类型任务的结果处理
+                if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            }
+            
+            // 确保输出窗口是可见的
+            processedView.classList.add('active');
+            
+            // 更新输出窗口的内容
+            processedText.textContent = formattedResult;
+            
+            // 关闭任务详情模态框
+            this.closeTaskDetailModal();
+            
+            // 显示成功提示
+            this.showEnhancedSuccess(`已将任务结果应用到输出窗口`);
+            
+            // 切换到处理文本视图
+            this.switchView(outputWindow, 'processed');
+            
+            // 强制刷新显示
+            processedText.style.display = 'none';
+            processedText.offsetHeight; // 触发重排
+            processedText.style.display = '';
+            
+            // 调试信息
+            console.log('任务结果已应用:', {
+                taskType: task.type,
+                originalResult: task.result,
+                formattedResult: formattedResult,
+                outputElement: processedText,
+                outputWindow: outputWindow,
+                processedView: processedView
+            });
+            
+            // 验证输出是否正确显示
+            setTimeout(() => {
+                if (processedText.textContent === formattedResult) {
+                    console.log('✅ 任务结果已成功应用到输出窗口');
+                } else {
+                    console.error('❌ 任务结果应用失败，内容不匹配');
+                    console.log('期望内容:', formattedResult);
+                    console.log('实际内容:', processedText.textContent);
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('应用任务结果时发生错误:', error);
+            this.showError(`应用任务结果失败: ${error.message}`);
+        }
     }
 }
 

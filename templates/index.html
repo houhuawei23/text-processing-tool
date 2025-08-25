@@ -205,6 +205,9 @@
                         <button class="tab-btn" data-tab="regex">
                             <i class="fas fa-code"></i> 正则规则
                         </button>
+                        <button class="tab-btn" data-tab="tasks">
+                            <i class="fas fa-tasks"></i> 任务队列
+                        </button>
                     </div>
 
                     <!-- 选项卡内容 -->
@@ -562,6 +565,47 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 任务队列选项卡 -->
+                        <div id="tasksTab" class="tab-pane">
+                            <div class="tasks-section">
+                                <div class="section-header">
+                                    <h3><i class="fas fa-tasks"></i> 任务队列</h3>
+                                    <div class="task-controls">
+                                        <button id="clearCompletedTasks" class="btn btn-sm btn-outline">
+                                            <i class="fas fa-trash"></i> 清空已完成
+                                        </button>
+                                        <button id="refreshTasks" class="btn btn-sm btn-outline">
+                                            <i class="fas fa-sync"></i> 刷新
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="tasks-container">
+                                    <div class="tasks-tabs">
+                                        <button class="task-tab-btn active" data-task-status="all">
+                                            <i class="fas fa-list"></i> 全部任务
+                                        </button>
+                                        <button class="task-tab-btn" data-task-status="pending">
+                                            <i class="fas fa-clock"></i> 待处理
+                                        </button>
+                                        <button class="task-tab-btn" data-task-status="processing">
+                                            <i class="fas fa-spinner"></i> 处理中
+                                        </button>
+                                        <button class="task-tab-btn" data-task-status="completed">
+                                            <i class="fas fa-check"></i> 已完成
+                                        </button>
+                                        <button class="task-tab-btn" data-task-status="failed">
+                                            <i class="fas fa-times"></i> 失败
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="tasks-list" id="tasksList">
+                                        <!-- 任务列表将在这里动态生成 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -585,6 +629,13 @@
             <div id="successToast" class="toast success-toast">
                 <i class="fas fa-check-circle"></i>
                 <span id="successMessage"></span>
+                <button class="toast-close">&times;</button>
+            </div>
+
+            <!-- 警告提示 -->
+            <div id="warningToast" class="toast warning-toast">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="warningMessage"></span>
                 <button class="toast-close">&times;</button>
             </div>
             
@@ -646,6 +697,32 @@
                     <div class="prompt-modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="app.closePromptModal()">取消</button>
                         <button type="button" class="btn btn-primary" id="promptSaveBtn">保存</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 任务详情模态框 -->
+            <div id="taskDetailModal" class="task-modal">
+                <div class="task-modal-content">
+                    <div class="task-modal-header">
+                        <h3><i class="fas fa-info-circle"></i> 任务详情</h3>
+                        <button class="task-modal-close" onclick="app.closeTaskDetailModal()">&times;</button>
+                    </div>
+                    <div class="task-modal-body">
+                        <div class="task-detail-content">
+                            <div class="task-detail-section">
+                                <h4>任务信息</h4>
+                                <div id="taskDetailInfo"></div>
+                            </div>
+                            <div class="task-detail-section">
+                                <h4>输入内容</h4>
+                                <div id="taskDetailInput"></div>
+                            </div>
+                            <div class="task-detail-section">
+                                <h4>处理结果</h4>
+                                <div id="taskDetailOutput"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
