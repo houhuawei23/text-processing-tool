@@ -42,8 +42,8 @@ OCR功能使用以下环境变量进行配置：
 
 ```bash
 # SimpleTex API配置
-SIMPLETEX_APP_ID=kRXYUmYKPmgfqqeKyxtQl8rQ
-SIMPLETEX_APP_SECRET=1GpNAbi3yd0tEcaLsj0Vla4YGZl1Ckr9
+SIMPLETEX_APP_ID=*
+SIMPLETEX_APP_SECRET=*
 
 # 可选配置
 SIMPLETEX_API_URL=https://server.simpletex.cn/api/simpletex_ocr
@@ -56,8 +56,8 @@ OCR_MAX_RETRIES=3  # 最大重试次数
 
 如果不设置环境变量，系统将使用以下默认配置：
 
-- **App ID**: `kRXYUmYKPmgfqqeKyxtQl8rQ`
-- **App Secret**: `1GpNAbi3yd0tEcaLsj0Vla4YGZl1Ckr9`
+- **App ID**: `*`
+- **App Secret**: `*`
 - **API URL**: `https://server.simpletex.cn/api/simpletex_ocr`
 - **最大文件大小**: 10MB
 - **超时时间**: 30秒
