@@ -8,9 +8,11 @@ class TextProcessorApp {
         this.currentResult = null;
         this.isProcessing = false;
         this.regexRules = [];  // 存储正则规则
-        this.inputWindows = [];  // 存储输入窗口信息
+        this.textInputWindows = [];  // 存储文本输入窗口信息
+        this.imageInputWindows = [];  // 存储图片输入窗口信息
         this.outputWindows = [];  // 存储输出窗口信息
-        this.nextInputWindowId = 2;  // 下一个输入窗口ID
+        this.nextTextInputWindowId = 2;  // 下一个文本输入窗口ID
+        this.nextImageInputWindowId = 2;  // 下一个图片输入窗口ID
         this.nextOutputWindowId = 2;  // 下一个输出窗口ID
         
         // 任务队列相关
@@ -19,6 +21,9 @@ class TextProcessorApp {
         this.currentTaskStatus = 'all';
         this.latestTaskIds = [];  // 记录最近创建的任务ID列表
         this.hasAutoDisplayedResult = false;  // 标记是否已经自动显示过结果
+        
+        // 图片上传相关
+        this.selectedImageFiles = [];  // 当前选中的图片文件列表
         
         // 调试模式
         this.debugMode = false;  // 设置为true可以查看关键词提取的调试信息
@@ -41,17 +46,31 @@ class TextProcessorApp {
         this.setupTabSwitching();  // 设置选项卡切换
         this.setupSmoothAnimations();  // 设置平滑动画
         this.setupKeyboardShortcuts();  // 设置键盘快捷键
+        this.setupAutoSave();  // 设置自动保存功能
     }
 
     /**
      * 初始化窗口系统
      */
     initializeWindows() {
-        // 初始化第一个输入窗口
-        this.inputWindows = [{
+        // 初始化第一个文本输入窗口
+        this.textInputWindows = [{
             id: 1,
             element: document.getElementById('inputText1'),
             charCount: 0
+        }];
+
+        // 初始化第一个图片输入窗口
+        this.imageInputWindows = [{
+            id: 1,
+            element: document.getElementById('imageFileInput1'),
+            uploadZone: document.getElementById('uploadZone1'),
+            preview: document.getElementById('imagePreview1'),
+            previewImage: document.getElementById('previewImage1'),
+            fileName: document.getElementById('imageFileName1'),
+            fileSize: document.getElementById('imageFileSize1'),
+            removeBtn: document.getElementById('removeImageBtn1'),
+            selectedFile: null
         }];
 
         // 初始化第一个输出窗口
@@ -84,8 +103,11 @@ class TextProcessorApp {
      * 绑定事件监听器
      */
     bindEvents() {
-        // 文本输入事件 - 为所有输入窗口绑定事件
-        this.bindInputEvents();
+        // 文本输入事件 - 为所有文本输入窗口绑定事件
+        this.bindTextInputEvents();
+        
+        // 图片输入事件 - 为所有图片输入窗口绑定事件
+        this.bindImageInputEvents();
 
         // 正则规则输入事件
         const regexReplaceRules = document.getElementById('regexReplaceRules');
@@ -94,6 +116,7 @@ class TextProcessorApp {
 
         // 按钮事件
         document.getElementById('processBtn').addEventListener('click', () => this.processText());
+        document.getElementById('ocrBtn').addEventListener('click', () => this.processOCR());
         document.getElementById('regexBtn').addEventListener('click', () => this.processRegex());
         document.getElementById('translateBtn').addEventListener('click', () => this.translateText());
         document.getElementById('clearBtn').addEventListener('click', () => this.clearAll());
@@ -102,8 +125,10 @@ class TextProcessorApp {
         document.getElementById('addRegexRule').addEventListener('click', () => this.addRegexRule());
 
         // 窗口管理事件
-        document.getElementById('addInputWindow').addEventListener('click', () => this.addInputWindow());
-        document.getElementById('removeInputWindow').addEventListener('click', () => this.removeInputWindow());
+        document.getElementById('addTextInputWindow').addEventListener('click', () => this.addTextInputWindow());
+        document.getElementById('removeTextInputWindow').addEventListener('click', () => this.removeTextInputWindow());
+        document.getElementById('addImageInputWindow').addEventListener('click', () => this.addImageInputWindow());
+        document.getElementById('removeImageInputWindow').addEventListener('click', () => this.removeImageInputWindow());
         document.getElementById('addOutputWindow').addEventListener('click', () => this.addOutputWindow());
         document.getElementById('removeOutputWindow').addEventListener('click', () => this.removeOutputWindow());
 
@@ -167,37 +192,91 @@ class TextProcessorApp {
         document.querySelectorAll('.task-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchTaskTab(e.target.dataset.taskStatus));
         });
+        
+        // 图片上传和OCR相关事件已在bindImageInputEvents中处理
     }
 
     /**
-     * 为所有输入窗口绑定事件
+     * 为所有文本输入窗口绑定事件
      */
-    bindInputEvents() {
-        // 为现有的输入窗口绑定事件
-        this.inputWindows.forEach(window => {
-            this.bindSingleInputEvents(window);
+    bindTextInputEvents() {
+        // 为现有的文本输入窗口绑定事件
+        this.textInputWindows.forEach(window => {
+            this.bindSingleTextInputEvents(window);
         });
     }
 
     /**
-     * 为单个输入窗口绑定事件
+     * 为单个文本输入窗口绑定事件
      */
-    bindSingleInputEvents(window) {
+    bindSingleTextInputEvents(window) {
         const textarea = window.element;
         textarea.addEventListener('input', () => this.updateCharCount());
         textarea.addEventListener('paste', () => this.updateCharCount());
     }
 
     /**
-     * 添加输入窗口
+     * 为所有图片输入窗口绑定事件
      */
-    addInputWindow() {
-        const windowId = this.nextInputWindowId++;
-        const container = document.querySelector('.input-windows-container');
+    bindImageInputEvents() {
+        // 为现有的图片输入窗口绑定事件
+        this.imageInputWindows.forEach(window => {
+            this.bindSingleImageInputEvents(window);
+        });
+    }
+
+    /**
+     * 为单个图片输入窗口绑定事件
+     */
+    bindSingleImageInputEvents(window) {
+        // 点击上传区域触发文件选择
+        window.uploadZone.addEventListener('click', () => {
+            window.element.click();
+        });
+
+        // 文件选择事件
+        window.element.addEventListener('change', (e) => {
+            this.handleImageFileSelect(e.target.files[0], window);
+        });
+
+        // 拖拽事件
+        window.uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            window.uploadZone.classList.add('dragover');
+        });
+
+        window.uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            window.uploadZone.classList.remove('dragover');
+        });
+
+        window.uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            window.uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleImageFileSelect(files[0], window);
+            }
+        });
+
+        // 移除图片按钮
+        if (window.removeBtn) {
+            window.removeBtn.addEventListener('click', () => {
+                this.removeSelectedImage(window);
+            });
+        }
+    }
+
+    /**
+     * 添加文本输入窗口
+     */
+    addTextInputWindow() {
+        const windowId = this.nextTextInputWindowId++;
+        const container = document.querySelector('.text-input-windows-container');
         
-        // 创建新的输入窗口HTML
+        // 创建新的文本输入窗口HTML
         const windowHTML = `
-            <div class="input-window-item" data-window-id="${windowId}">
+            <div class="text-input-window-item" data-window-id="${windowId}">
                 <div class="textarea-container">
                     <textarea
                         id="inputText${windowId}"
@@ -228,10 +307,10 @@ class TextProcessorApp {
         };
         
         // 添加到窗口列表
-        this.inputWindows.push(newWindow);
+        this.textInputWindows.push(newWindow);
         
         // 绑定事件
-        this.bindSingleInputEvents(newWindow);
+        this.bindSingleTextInputEvents(newWindow);
         
         // 更新窗口控制按钮状态
         this.updateWindowControlButtons();
@@ -239,28 +318,87 @@ class TextProcessorApp {
         // 重新绑定复制按钮事件
         this.rebindCopyButtons();
         
-        this.showSuccess(`已添加输入窗口 ${windowId}`);
+        this.showSuccess(`已添加文本输入窗口 ${windowId}`);
     }
 
     /**
-     * 移除输入窗口
+     * 添加图片输入窗口
      */
-    removeInputWindow() {
-        if (this.inputWindows.length <= 1) {
-            this.showError('至少需要保留一个输入窗口');
+    addImageInputWindow() {
+        const windowId = this.nextImageInputWindowId++;
+        const container = document.querySelector('.image-input-windows-container');
+        
+        // 创建新的图片输入窗口HTML
+        const windowHTML = `
+            <div class="image-input-window-item" data-window-id="${windowId}">
+                <div class="image-upload-area">
+                    <div class="upload-zone" id="uploadZone${windowId}">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击或拖拽图片到此处</p>
+                        <p class="upload-hint">支持 PNG、JPG、JPEG、BMP、TIFF、WEBP 格式，最大 10MB</p>
+                        <input type="file" id="imageFileInput${windowId}" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="image-preview" id="imagePreview${windowId}" style="display: none;">
+                        <img id="previewImage${windowId}" src="" alt="预览图片">
+                        <div class="image-info">
+                            <span id="imageFileName${windowId}"></span>
+                            <span id="imageFileSize${windowId}"></span>
+                        </div>
+                        <button class="btn btn-sm btn-outline remove-image-btn" id="removeImageBtn${windowId}">
+                            <i class="fas fa-times"></i> 移除图片
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 插入到容器中
+        container.insertAdjacentHTML('beforeend', windowHTML);
+        
+        // 创建窗口对象
+        const newWindow = {
+            id: windowId,
+            element: document.getElementById(`imageFileInput${windowId}`),
+            uploadZone: document.getElementById(`uploadZone${windowId}`),
+            preview: document.getElementById(`imagePreview${windowId}`),
+            previewImage: document.getElementById(`previewImage${windowId}`),
+            fileName: document.getElementById(`imageFileName${windowId}`),
+            fileSize: document.getElementById(`imageFileSize${windowId}`),
+            removeBtn: document.getElementById(`removeImageBtn${windowId}`),
+            selectedFile: null
+        };
+        
+        // 添加到窗口列表
+        this.imageInputWindows.push(newWindow);
+        
+        // 绑定事件
+        this.bindSingleImageInputEvents(newWindow);
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        this.showSuccess(`已添加图片输入窗口 ${windowId}`);
+    }
+
+    /**
+     * 移除文本输入窗口
+     */
+    removeTextInputWindow() {
+        if (this.textInputWindows.length <= 1) {
+            this.showError('至少需要保留一个文本输入窗口');
             return;
         }
         
         // 移除最后一个窗口
-        const lastWindow = this.inputWindows.pop();
-        const windowElement = document.querySelector(`[data-window-id="${lastWindow.id}"]`);
+        const lastWindow = this.textInputWindows.pop();
+        const windowElement = document.querySelector(`.text-input-window-item[data-window-id="${lastWindow.id}"]`);
         
         if (windowElement) {
             windowElement.remove();
         }
         
-        // 重新编号剩余的输入窗口
-        this.renumberInputWindows();
+        // 重新编号剩余的文本输入窗口
+        this.renumberTextInputWindows();
         
         // 更新窗口控制按钮状态
         this.updateWindowControlButtons();
@@ -268,7 +406,33 @@ class TextProcessorApp {
         // 重新绑定复制按钮事件
         this.rebindCopyButtons();
         
-        this.showSuccess(`已移除输入窗口 ${lastWindow.id}`);
+        this.showSuccess(`已移除文本输入窗口 ${lastWindow.id}`);
+    }
+
+    /**
+     * 移除图片输入窗口
+     */
+    removeImageInputWindow() {
+        if (this.imageInputWindows.length <= 1) {
+            this.showError('至少需要保留一个图片输入窗口');
+            return;
+        }
+        
+        // 移除最后一个窗口
+        const lastWindow = this.imageInputWindows.pop();
+        const windowElement = document.querySelector(`.image-input-window-item[data-window-id="${lastWindow.id}"]`);
+        
+        if (windowElement) {
+            windowElement.remove();
+        }
+        
+        // 重新编号剩余的图片输入窗口
+        this.renumberImageInputWindows();
+        
+        // 更新窗口控制按钮状态
+        this.updateWindowControlButtons();
+        
+        this.showSuccess(`已移除图片输入窗口 ${lastWindow.id}`);
     }
 
     /**
@@ -547,16 +711,27 @@ class TextProcessorApp {
      * 更新窗口控制按钮状态
      */
     updateWindowControlButtons() {
-        const addInputBtn = document.getElementById('addInputWindow');
-        const removeInputBtn = document.getElementById('removeInputWindow');
+        const addTextInputBtn = document.getElementById('addTextInputWindow');
+        const removeTextInputBtn = document.getElementById('removeTextInputWindow');
+        const addImageInputBtn = document.getElementById('addImageInputWindow');
+        const removeImageInputBtn = document.getElementById('removeImageInputWindow');
         const addOutputBtn = document.getElementById('addOutputWindow');
         const removeOutputBtn = document.getElementById('removeOutputWindow');
         
-        // 输入窗口控制
-        removeInputBtn.disabled = this.inputWindows.length <= 1;
+        // 文本输入窗口控制
+        if (removeTextInputBtn) {
+            removeTextInputBtn.disabled = this.textInputWindows.length <= 1;
+        }
+        
+        // 图片输入窗口控制
+        if (removeImageInputBtn) {
+            removeImageInputBtn.disabled = this.imageInputWindows.length <= 1;
+        }
         
         // 输出窗口控制
-        removeOutputBtn.disabled = this.outputWindows.length <= 1;
+        if (removeOutputBtn) {
+            removeOutputBtn.disabled = this.outputWindows.length <= 1;
+        }
     }
 
     /**
@@ -602,6 +777,12 @@ class TextProcessorApp {
             this.translateText();
         }
         
+        // Ctrl+Shift+O OCR识别
+        if (e.ctrlKey && e.shiftKey && e.key === 'O') {
+            e.preventDefault();
+            this.processOCR();
+        }
+        
         // Ctrl+Shift+1-9 切换选项卡
         if (e.ctrlKey && e.shiftKey && /^[1-9]$/.test(e.key)) {
             e.preventDefault();
@@ -621,8 +802,8 @@ class TextProcessorApp {
         const textCounter = charCount.closest('.text-counter');
         let totalCount = 0;
         
-        // 计算所有输入窗口的字符总数
-        this.inputWindows.forEach(window => {
+        // 计算所有文本输入窗口的字符总数
+        this.textInputWindows.forEach(window => {
             totalCount += window.element.value.length;
         });
         
@@ -739,8 +920,8 @@ class TextProcessorApp {
      * 处理文本
      */
     async processText() {
-        // 收集所有输入窗口的文本
-        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
+        // 收集所有文本输入窗口的文本
+        const inputTexts = this.textInputWindows.map(window => window.element.value.trim()).filter(text => text);
         
         if (inputTexts.length === 0) {
             this.showError('请输入要处理的文本');
@@ -768,8 +949,8 @@ class TextProcessorApp {
      * 处理正则表达式替换
      */
     async processRegex() {
-        // 收集所有输入窗口的文本
-        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
+        // 收集所有文本输入窗口的文本
+        const inputTexts = this.textInputWindows.map(window => window.element.value.trim()).filter(text => text);
 
         if (inputTexts.length === 0) {
             this.showError('请输入要处理的文本');
@@ -1193,8 +1374,8 @@ class TextProcessorApp {
                 }
             });
 
-            // 清空所有输入窗口
-            this.inputWindows.forEach(window => {
+            // 清空所有文本输入窗口
+            this.textInputWindows.forEach(window => {
                 window.element.value = '';
             });
             this.updateCharCount();
@@ -1212,6 +1393,11 @@ class TextProcessorApp {
             // 清空正则规则
             this.regexRules = [];
             this.updateRegexRulesList();
+
+            // 清空所有选中的图片
+            this.imageInputWindows.forEach(window => {
+                this.removeSelectedImage(window);
+            });
 
             // 重置当前结果
             this.currentResult = null;
@@ -2037,8 +2223,8 @@ ${rulesText}`;
      * 翻译文本
      */
     async translateText() {
-        // 收集所有输入窗口的文本
-        const inputTexts = this.inputWindows.map(window => window.element.value.trim()).filter(text => text);
+        // 收集所有文本输入窗口的文本
+        const inputTexts = this.textInputWindows.map(window => window.element.value.trim()).filter(text => text);
         const translationPrompt = document.getElementById('translationPrompt').value.trim();
         const translationService = document.getElementById('translationService').value;
         
@@ -2917,9 +3103,6 @@ ${rulesText}`;
     setupKeyboardShortcuts() {
         // 显示快捷键提示
         this.showKeyboardShortcutsHelp();
-        
-        // 为输入框添加自动保存功能
-        this.setupAutoSave();
     }
 
     /**
@@ -2948,6 +3131,7 @@ ${rulesText}`;
                 Ctrl+Shift+C: 清空所有<br>
                 Ctrl+Shift+R: 正则处理<br>
                 Ctrl+Shift+T: 翻译<br>
+                Ctrl+Shift+O: OCR识别<br>
                 Ctrl+Shift+1-4: 切换选项卡
             </div>
         `;
@@ -2976,7 +3160,7 @@ ${rulesText}`;
     setupAutoSave() {
         let autoSaveTimer;
         
-        this.inputWindows.forEach(window => {
+        this.textInputWindows.forEach(window => {
             window.element.addEventListener('input', () => {
                 clearTimeout(autoSaveTimer);
                 autoSaveTimer = setTimeout(() => {
@@ -2991,7 +3175,7 @@ ${rulesText}`;
      */
     saveToLocalStorage() {
         const data = {
-            inputTexts: this.inputWindows.map(w => w.element.value),
+            inputTexts: this.textInputWindows.map(w => w.element.value),
             regexRules: this.regexRules,
             timestamp: Date.now()
         };
@@ -3018,8 +3202,8 @@ ${rulesText}`;
                 if (now - parsed.timestamp < oneDay) {
                     if (parsed.inputTexts) {
                         parsed.inputTexts.forEach((text, index) => {
-                            if (this.inputWindows[index]) {
-                                this.inputWindows[index].element.value = text;
+                            if (this.textInputWindows[index]) {
+                                this.textInputWindows[index].element.value = text;
                             }
                         });
                     }
@@ -3035,87 +3219,6 @@ ${rulesText}`;
             }
         } catch (error) {
             console.warn('无法从本地存储恢复:', error);
-        }
-    }
-
-    /**
-     * 显示键盘快捷键帮助
-     */
-    showKeyboardShortcutsHelp() {
-        const helpText = `
-            <div class="keyboard-shortcuts-help" style="
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                background: var(--surface-color);
-                padding: 16px;
-                border-radius: var(--border-radius-sm);
-                box-shadow: var(--shadow-lg);
-                border: 1px solid var(--border-light);
-                font-size: 0.85rem;
-                color: var(--text-secondary);
-                z-index: 999;
-                max-width: 300px;
-                opacity: 0.8;
-                transition: opacity 0.3s ease;
-            ">
-                <strong>键盘快捷键:</strong><br>
-                Ctrl+Enter: 处理文本<br>
-                Ctrl+Shift+C: 清空所有<br>
-                Ctrl+Shift+R: 正则处理<br>
-                Ctrl+Shift+T: 翻译<br>
-                Ctrl+Shift+1-4: 切换选项卡
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', helpText);
-        
-        // 点击隐藏帮助
-        const helpElement = document.querySelector('.keyboard-shortcuts-help');
-        helpElement.addEventListener('click', () => {
-            helpElement.style.opacity = '0';
-            setTimeout(() => helpElement.remove(), 300);
-        });
-        
-        // 5秒后自动隐藏
-        setTimeout(() => {
-            if (helpElement) {
-                helpElement.style.opacity = '0';
-                setTimeout(() => helpElement.remove(), 300);
-            }
-        }, 5000);
-    }
-
-    /**
-     * 设置自动保存功能
-     */
-    setupAutoSave() {
-        let autoSaveTimer;
-        
-        this.inputWindows.forEach(window => {
-            window.element.addEventListener('input', () => {
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = setTimeout(() => {
-                    this.saveToLocalStorage();
-                }, 2000); // 2秒后自动保存
-            });
-        });
-    }
-
-    /**
-     * 保存到本地存储
-     */
-    saveToLocalStorage() {
-        const data = {
-            inputTexts: this.inputWindows.map(w => w.element.value),
-            regexRules: this.regexRules,
-            timestamp: Date.now()
-        };
-        
-        try {
-            localStorage.setItem('textProcessorData', JSON.stringify(data));
-        } catch (error) {
-            console.warn('无法保存到本地存储:', error);
         }
     }
 
@@ -3534,7 +3637,8 @@ ${rulesText}`;
         const typeClassMap = {
             'translation': 'task-type-translation',
             'text-processing': 'task-type-text-processing',
-            'regex-processing': 'task-type-regex-processing'
+            'regex-processing': 'task-type-regex-processing',
+            'ocr-processing': 'task-type-ocr-processing'
         };
         return typeClassMap[taskType] || 'task-type-default';
     }
@@ -3546,7 +3650,8 @@ ${rulesText}`;
         const typeNameMap = {
             'translation': '翻译',
             'text-processing': '文本处理',
-            'regex-processing': '正则处理'
+            'regex-processing': '正则处理',
+            'ocr-processing': 'OCR识别'
         };
         return typeNameMap[taskType] || taskType;
     }
@@ -3558,7 +3663,8 @@ ${rulesText}`;
         const typeIconMap = {
             'translation': 'fas fa-language',
             'text-processing': 'fas fa-cogs',
-            'regex-processing': 'fas fa-magic'
+            'regex-processing': 'fas fa-magic',
+            'ocr-processing': 'fas fa-eye'
         };
         return typeIconMap[taskType] || 'fas fa-tasks';
     }
@@ -3898,6 +4004,12 @@ ${rulesText}`;
                 if (typeof task.result === 'string') {
                     processedText = task.result;
                 }
+            } else if (task.type === 'ocr-processing') {
+                // OCR处理任务：提取识别后的文本
+                processedText = task.result.ocr_text || task.result.text || '';
+                if (typeof task.result === 'string') {
+                    processedText = task.result;
+                }
             } else {
                 // 其他类型任务
                 if (typeof task.result === 'string') {
@@ -4114,6 +4226,25 @@ ${rulesText}`;
                 // 正则处理任务的结果处理
                 if (task.result.processed_text) {
                     formattedResult = task.result.processed_text;
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
+            } else if (task.type === 'ocr-processing') {
+                // OCR处理任务的结果处理
+                if (task.result.ocr_text) {
+                    formattedResult = task.result.ocr_text;
+                    // 如果有置信度信息，添加到结果中
+                    if (task.result.confidence !== undefined) {
+                        formattedResult += `\n\n置信度: ${(task.result.confidence * 100).toFixed(1)}%`;
+                    }
+                    // 如果有类型信息，添加到结果中
+                    if (task.result.ocr_type && task.result.ocr_type !== 'unknown') {
+                        formattedResult += `\n类型: ${task.result.ocr_type}`;
+                    }
                 } else if (task.result.text) {
                     formattedResult = task.result.text;
                 } else if (typeof task.result === 'string') {
@@ -4377,6 +4508,25 @@ ${rulesText}`;
                 } else {
                     formattedResult = JSON.stringify(task.result, null, 2);
                 }
+            } else if (task.type === 'ocr-processing') {
+                // OCR处理任务的结果处理
+                if (task.result.ocr_text) {
+                    formattedResult = task.result.ocr_text;
+                    // 如果有置信度信息，添加到结果中
+                    if (task.result.confidence !== undefined) {
+                        formattedResult += `\n\n置信度: ${(task.result.confidence * 100).toFixed(1)}%`;
+                    }
+                    // 如果有类型信息，添加到结果中
+                    if (task.result.ocr_type && task.result.ocr_type !== 'unknown') {
+                        formattedResult += `\n类型: ${task.result.ocr_type}`;
+                    }
+                } else if (task.result.text) {
+                    formattedResult = task.result.text;
+                } else if (typeof task.result === 'string') {
+                    formattedResult = task.result;
+                } else {
+                    formattedResult = JSON.stringify(task.result, null, 2);
+                }
             } else {
                 // 其他类型任务的结果处理
                 if (typeof task.result === 'string') {
@@ -4431,6 +4581,252 @@ ${rulesText}`;
             console.error('应用任务结果时发生错误:', error);
             this.showError(`应用任务结果失败: ${error.message}`);
         }
+    }
+
+    // ==================== 图片上传和OCR相关方法 ====================
+
+    /**
+     * 处理图片文件选择
+     */
+    handleImageFileSelect(file, window) {
+        if (!file) return;
+
+        // 验证文件类型
+        const supportedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff', 'image/webp'];
+        if (!supportedTypes.includes(file.type)) {
+            this.showError('不支持的文件格式。支持的格式: PNG、JPG、JPEG、BMP、TIFF、WEBP');
+            return;
+        }
+
+        // 验证文件大小（10MB）
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            this.showError('文件过大。最大支持: 10MB');
+            return;
+        }
+
+        // 显示图片预览
+        this.showImagePreview(file, window);
+    }
+
+    /**
+     * 显示图片预览
+     */
+    showImagePreview(file, window) {
+        if (!window || !window.uploadZone || !window.preview || !window.previewImage) return;
+
+        // 创建文件URL
+        const fileURL = URL.createObjectURL(file);
+
+        // 更新预览图片
+        window.previewImage.src = fileURL;
+        window.previewImage.alt = file.name;
+
+        // 更新文件信息
+        if (window.fileName) {
+            window.fileName.textContent = `文件名: ${file.name}`;
+        }
+        if (window.fileSize) {
+            window.fileSize.textContent = `大小: ${this.formatFileSize(file.size)}`;
+        }
+
+        // 显示预览区域
+        window.uploadZone.style.display = 'none';
+        window.preview.style.display = 'flex';
+
+        // 存储选中的文件
+        window.selectedFile = file;
+    }
+
+    /**
+     * 移除选中的图片
+     */
+    removeSelectedImage(window) {
+        if (!window || !window.uploadZone || !window.preview) return;
+
+        // 清除文件输入
+        if (window.element) {
+            window.element.value = '';
+        }
+
+        // 清除预览图片URL
+        if (window.previewImage && window.previewImage.src) {
+            URL.revokeObjectURL(window.previewImage.src);
+        }
+
+        // 隐藏预览区域，显示上传区域
+        window.preview.style.display = 'none';
+        window.uploadZone.style.display = 'block';
+
+        // 清除选中的文件
+        window.selectedFile = null;
+    }
+
+    /**
+     * 格式化文件大小
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    /**
+     * 处理OCR识别
+     */
+    async processOCR() {
+        // 收集所有图片输入窗口的图片
+        const imageFiles = this.imageInputWindows
+            .map(window => window.selectedFile)
+            .filter(file => file !== null);
+        
+        if (imageFiles.length === 0) {
+            this.showError('请先选择要识别的图片');
+            return;
+        }
+
+        // 创建OCR任务并添加到队列
+        this.createOCRProcessingTasks(imageFiles);
+        
+        // 显示成功提示
+        this.showEnhancedSuccess(`已创建 ${imageFiles.length} 个OCR识别任务，请在任务队列中查看进度`);
+        
+        // 自动切换到任务队列选项卡
+        this.switchTab({ target: { dataset: { tab: 'tasks' } } });
+    }
+
+    /**
+     * 创建OCR处理任务
+     */
+    createOCRProcessingTasks(imageFiles) {
+        // 清空之前的最新任务ID列表
+        this.latestTaskIds = [];
+        this.hasAutoDisplayedResult = false;  // 重置自动显示标志
+        
+        imageFiles.forEach((file, index) => {
+            const task = {
+                id: this.nextTaskId++,
+                type: 'ocr-processing',
+                status: 'pending',
+                input: file,
+                filename: file.name,
+                fileSize: file.size,
+                createdAt: new Date(),
+                progress: 0,
+                result: null,
+                error: null
+            };
+            
+            this.taskQueue.push(task);
+            this.latestTaskIds.push(task.id);  // 记录任务ID
+            
+            // 开始后台处理
+            this.processOCRTaskInBackground(task);
+        });
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+    }
+
+    /**
+     * 后台处理OCR任务
+     */
+    async processOCRTaskInBackground(task) {
+        try {
+            // 更新任务状态为处理中
+            task.status = 'processing';
+            task.progress = 10;
+            this.updateTasksDisplay();
+            
+            // 模拟进度更新
+            const progressInterval = setInterval(() => {
+                if (task.status === 'processing' && task.progress < 90) {
+                    task.progress += Math.random() * 20;
+                    this.updateTasksDisplay();
+                }
+            }, 1000);
+            
+            // 创建FormData对象
+            const formData = new FormData();
+            formData.append('file', task.input);
+            
+            // 执行OCR识别
+            const response = await fetch('/api/ocr', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            clearInterval(progressInterval);
+
+            if (!response.ok) {
+                throw new Error(result.error || 'OCR识别失败');
+            }
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            // 任务完成
+            task.status = 'completed';
+            task.progress = 100;
+            task.result = result.data || result;
+            task.completedAt = new Date();
+            
+        } catch (error) {
+            console.error(`OCR任务 ${task.id} 处理失败:`, error);
+            task.status = 'failed';
+            task.error = error.message || 'OCR识别失败';
+            task.failedAt = new Date();
+        }
+        
+        // 更新任务队列显示
+        this.updateTasksDisplay();
+        
+        // 检查是否为最新任务，如果是则自动显示结果
+        this.checkAndAutoDisplayResult(task);
+    }
+
+    /**
+     * 根据任务类型获取对应的CSS类名
+     */
+    getTaskTypeClass(taskType) {
+        const typeClassMap = {
+            'translation': 'task-type-translation',
+            'text-processing': 'task-type-text-processing',
+            'regex-processing': 'task-type-regex-processing',
+            'ocr-processing': 'task-type-ocr-processing'
+        };
+        return typeClassMap[taskType] || 'task-type-default';
+    }
+
+    /**
+     * 根据任务类型获取中文显示名称
+     */
+    getTaskTypeDisplayName(taskType) {
+        const typeNameMap = {
+            'translation': '翻译',
+            'text-processing': '文本处理',
+            'regex-processing': '正则处理',
+            'ocr-processing': 'OCR识别'
+        };
+        return typeNameMap[taskType] || taskType;
+    }
+
+    /**
+     * 根据任务类型获取对应的图标
+     */
+    getTaskTypeIcon(taskType) {
+        const typeIconMap = {
+            'translation': 'fas fa-language',
+            'text-processing': 'fas fa-cogs',
+            'regex-processing': 'fas fa-magic',
+            'ocr-processing': 'fas fa-eye'
+        };
+        return typeIconMap[taskType] || 'fas fa-tasks';
     }
 }
 

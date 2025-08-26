@@ -10,6 +10,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session, current_app
 from ..core.text_processor import text_processor
 from ..services.translation_service import translation_service
+from ..services.ocr_service import ocr_service
 from ..utils.validators import validate_text_input, validate_regex_rules
 from ..utils.response_helpers import create_success_response, create_error_response
 
@@ -719,4 +720,95 @@ def _record_processing_history(operations, text_length, **kwargs):
     
     # Keep only last 50 entries
     if len(session['processing_history']) > 50:
-        session['processing_history'] = session['processing_history'][-50:] 
+        session['processing_history'] = session['processing_history'][-50:]
+
+
+# ==================== OCR API Routes ====================
+
+@api_bp.route('/ocr', methods=['POST'])
+def ocr_api():
+    """
+    OCR processing API endpoint.
+    
+    Expected multipart/form-data:
+    - file: Image file to process
+    """
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return create_error_response('No file provided', 400)
+        
+        file = request.files['file']
+        
+        # Check if file is selected
+        if file.filename == '':
+            return create_error_response('No file selected', 400)
+        
+        # Read file data
+        file_data = file.read()
+        filename = file.filename
+        
+        # Process image with OCR
+        result = ocr_service.process_image_data(file_data, filename)
+        
+        if result['success']:
+            # Extract OCR text and additional info from result
+            ocr_text = result['data'].get('text', '')
+            ocr_type = result['data'].get('type', 'unknown')
+            confidence = result['data'].get('confidence', 0.0)
+            
+            # Record processing history
+            _record_processing_history(['ocr'], len(ocr_text), file_size=len(file_data))
+            
+            return create_success_response({
+                'ocr_text': ocr_text,
+                'ocr_type': ocr_type,
+                'confidence': confidence,
+                'request_id': result.get('request_id'),
+                'file_info': {
+                    'filename': filename,
+                    'size': len(file_data),
+                    'format': filename.split('.')[-1].lower() if '.' in filename else 'unknown'
+                }
+            })
+        else:
+            return create_error_response(result['error'], 400)
+        
+    except Exception as e:
+        current_app.logger.error(f"OCR processing error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/ocr/test', methods=['GET'])
+def test_ocr_api():
+    """Test OCR API connection."""
+    try:
+        result = ocr_service.test_api_connection()
+        
+        if result['success']:
+            return create_success_response({
+                'message': result['message'],
+                'request_id': result.get('request_id')
+            })
+        else:
+            return create_error_response(result['error'], 400)
+        
+    except Exception as e:
+        current_app.logger.error(f"OCR test error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500)
+
+
+@api_bp.route('/ocr/formats', methods=['GET'])
+def get_supported_formats():
+    """Get supported image formats for OCR."""
+    try:
+        formats = ocr_service.get_supported_formats()
+        
+        return create_success_response({
+            'supported_formats': formats,
+            'max_file_size_mb': 10  # 10MB
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Get formats error: {str(e)}")
+        return create_error_response(f'Server error: {str(e)}', 500) 

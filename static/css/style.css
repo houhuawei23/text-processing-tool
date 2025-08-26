@@ -1250,6 +1250,20 @@ body {
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
 }
 
+/* OCR识别任务 - 紫色主题 */
+.task-type-ocr-processing::before {
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+}
+
+.task-type-ocr-processing {
+    border-left: 4px solid #8b5cf6;
+}
+
+.task-type-ocr-processing:hover {
+    border-color: #7c3aed;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+}
+
 /* 默认任务类型 - 灰色主题 */
 .task-type-default::before {
     background: linear-gradient(180deg, #6b7280, #4b5563);
@@ -1441,6 +1455,13 @@ body {
     background: rgba(245, 158, 11, 0.1);
     color: #f59e0b;
     border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* OCR识别任务标签 */
+.task-type-badge.task-type-ocr-processing {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 /* 默认任务类型标签 */
@@ -3168,5 +3189,409 @@ body {
     .input-windows-container,
     .output-windows-container {
         gap: 15px;
+    }
+}
+
+
+/* ==================== 图片上传和OCR相关样式 ==================== */
+
+/* 输入类型切换器 */
+.input-type-switcher {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    background: var(--surface-color);
+    border-radius: var(--border-radius-sm);
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.input-type-btn {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.input-type-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.input-type-btn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.input-type-btn i {
+    font-size: 0.8rem;
+}
+
+/* 输入容器 */
+.text-input-container,
+.image-input-container {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.text-input-container.active,
+.image-input-container.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 图片上传区域 */
+.image-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--surface-color);
+    transition: var(--transition);
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-upload-area:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+}
+
+.upload-zone {
+    text-align: center;
+    padding: 40px 20px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.upload-zone:hover {
+    transform: scale(1.02);
+}
+
+.upload-zone i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 16px;
+    display: block;
+}
+
+.upload-zone p {
+    margin: 8px 0;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.upload-hint {
+    font-size: 0.85rem !important;
+    color: var(--text-muted) !important;
+    margin-top: 12px !important;
+}
+
+/* 图片预览区域 */
+.image-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 16px;
+    width: 100%;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: var(--border-radius-sm);
+    box-shadow: var(--shadow-md);
+    object-fit: contain;
+}
+
+.image-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.image-info span {
+    padding: 4px 8px;
+    background: var(--surface-hover);
+    border-radius: var(--border-radius-sm);
+    font-family: monospace;
+}
+
+.remove-image-btn {
+    margin-top: 8px;
+    background: var(--error-light);
+    color: var(--error-color);
+    border: 1px solid var(--error-color);
+}
+
+.remove-image-btn:hover {
+    background: var(--error-color);
+    color: white;
+}
+
+/* 拖拽状态 */
+.upload-zone.dragover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    transform: scale(1.02);
+}
+
+.upload-zone.dragover i {
+    color: var(--primary-hover);
+}
+
+/* OCR按钮样式 */
+.btn-warning {
+    background: var(--warning-color);
+    color: white;
+    border: 1px solid var(--warning-color);
+}
+
+.btn-warning:hover {
+    background: #d97706;
+    border-color: #d97706;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* 图片上传进度 */
+.upload-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+
+/* 图片上传状态 */
+.upload-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.9rem;
+    margin: 8px 0;
+}
+
+.upload-status.success {
+    background: var(--success-light);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+}
+
+.upload-status.error {
+    background: var(--error-light);
+    color: var(--error-color);
+    border: 1px solid var(--error-color);
+}
+
+.upload-status.processing {
+    background: var(--primary-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+/* 图片上传错误提示 */
+.upload-error {
+    color: var(--error-color);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--error-light);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--error-color);
+}
+
+/* 图片格式支持提示 */
+.format-support {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+    justify-content: center;
+}
+
+.format-tag {
+    padding: 2px 6px;
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: monospace;
+}
+
+/* 响应式图片上传 */
+@media (max-width: 480px) {
+    .upload-zone {
+        padding: 20px 10px;
+    }
+    
+    .upload-zone i {
+        font-size: 2rem;
+    }
+    
+    .upload-zone p {
+        font-size: 0.9rem;
+    }
+    
+    .image-preview {
+        padding: 10px;
+    }
+    
+    .image-preview img {
+        max-height: 200px;
+    }
+    
+    .input-type-switcher {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .input-type-btn {
+        width: 100%;
+    }
+}
+
+/* ==================== 新的输入区域样式 ==================== */
+
+/* 输入区域子标题样式 */
+.section-sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.section-sub-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-sub-header h3 i {
+    color: var(--primary-color);
+}
+
+/* 文本输入区域 */
+.text-input-section {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--surface-color);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-light);
+}
+
+.text-input-windows-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.text-input-window-item {
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    background: var(--background-color);
+    transition: all 0.2s ease;
+}
+
+.text-input-window-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.text-input-window-item.active {
+    border-color: var(--primary-color);
+    background: var(--surface-hover);
+}
+
+/* 图片上传区域 */
+.image-input-section {
+    padding: 16px;
+    background: var(--surface-color);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-light);
+}
+
+.image-input-windows-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.image-input-window-item {
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    background: var(--background-color);
+    transition: all 0.2s ease;
+}
+
+.image-input-window-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.image-input-window-item.active {
+    border-color: var(--primary-color);
+    background: var(--surface-hover);
+}
+
+/* 移动端输入区域样式 */
+@media (max-width: 768px) {
+    .text-input-section,
+    .image-input-section {
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .section-sub-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .text-input-windows-container,
+    .image-input-windows-container {
+        gap: 12px;
     }
 } 

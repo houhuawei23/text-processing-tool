@@ -31,6 +31,9 @@
                             <button id="processBtn" class="btn btn-primary">
                                 <i class="fas fa-cogs"></i> 处理文本
                             </button>
+                            <button id="ocrBtn" class="btn btn-warning">
+                                <i class="fas fa-eye"></i> OCR识别
+                            </button>
                             <button id="regexBtn" class="btn btn-info">
                                 <i class="fas fa-magic"></i> 正则匹配与替换
                             </button>
@@ -47,39 +50,82 @@
                         <!-- 输入区域 -->
                         <div class="input-window">
                             <div class="section-header">
-                                <h2><i class="fas fa-edit"></i> 输入文本</h2>
+                                <h2><i class="fas fa-edit"></i> 输入</h2>
                                 <div class="input-controls">
                                     <div class="text-counter">
                                         <span id="charCount">0</span> 字符
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- 文本输入区域 -->
+                            <div class="text-input-section">
+                                <div class="section-sub-header">
+                                    <h3><i class="fas fa-font"></i> 文本输入</h3>
                                     <div class="window-controls">
-                                        <button id="addInputWindow" class="btn btn-sm btn-outline" title="添加输入窗口">
+                                        <button id="addTextInputWindow" class="btn btn-sm btn-outline" title="添加文本输入窗口">
                                             <i class="fas fa-plus"></i>
                                         </button>
-                                        <button id="removeInputWindow" class="btn btn-sm btn-outline" title="移除输入窗口" disabled>
+                                        <button id="removeTextInputWindow" class="btn btn-sm btn-outline" title="移除文本输入窗口" disabled>
                                             <i class="fas fa-minus"></i>
                                         </button>
                                     </div>
                                 </div>
+                                <div class="text-input-windows-container">
+                                    <div class="text-input-window-item active" data-window-id="1">
+                                        <div class="textarea-container">
+                                            <textarea
+                                                id="inputText1"
+                                                class="input-textarea"
+                                                placeholder="请在此处粘贴或输入要处理的文本..."
+                                                rows="12"
+                                                style="resize: vertical; max-height: 800px; min-height: 200px;"
+                                            ></textarea>
+                                            <button
+                                                class="copy-btn"
+                                                data-target="inputText1"
+                                                title="复制文本"
+                                            >
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="input-windows-container">
-                                <div class="input-window-item active" data-window-id="1">
-                                    <div class="textarea-container">
-                                        <textarea
-                                            id="inputText1"
-                                            class="input-textarea"
-                                            placeholder="请在此处粘贴或输入要处理的文本..."
-                                            rows="12"
-                                            style="resize: vertical; max-height: 800px; min-height: 200px;"
-                                        ></textarea>
-                                        <button
-                                            class="copy-btn"
-                                            data-target="inputText1"
-                                            title="复制文本"
-                                        >
-                                            <i class="fas fa-copy"></i>
+                            <!-- 图片上传区域 -->
+                            <div class="image-input-section">
+                                <div class="section-sub-header">
+                                    <h3><i class="fas fa-image"></i> 图片上传</h3>
+                                    <div class="window-controls">
+                                        <button id="addImageInputWindow" class="btn btn-sm btn-outline" title="添加图片上传窗口">
+                                            <i class="fas fa-plus"></i>
                                         </button>
+                                        <button id="removeImageInputWindow" class="btn btn-sm btn-outline" title="移除图片上传窗口" disabled>
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="image-input-windows-container">
+                                    <div class="image-input-window-item active" data-window-id="1">
+                                        <div class="image-upload-area">
+                                            <div class="upload-zone" id="uploadZone1">
+                                                <i class="fas fa-cloud-upload-alt"></i>
+                                                <p>点击或拖拽图片到此处</p>
+                                                <p class="upload-hint">支持 PNG、JPG、JPEG、BMP、TIFF、WEBP 格式，最大 10MB</p>
+                                                <input type="file" id="imageFileInput1" accept="image/*" style="display: none;">
+                                            </div>
+                                            <div class="image-preview" id="imagePreview1" style="display: none;">
+                                                <img id="previewImage1" src="" alt="预览图片">
+                                                <div class="image-info">
+                                                    <span id="imageFileName1"></span>
+                                                    <span id="imageFileSize1"></span>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline remove-image-btn" id="removeImageBtn1">
+                                                    <i class="fas fa-times"></i> 移除图片
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
