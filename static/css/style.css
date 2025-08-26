@@ -3544,6 +3544,89 @@ body {
     background: var(--surface-hover);
 }
 
+/* 文本文件上传区域 */
+.text-file-upload-area {
+    margin-bottom: 16px;
+    border: 2px dashed var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: var(--background-color);
+    transition: all 0.3s ease;
+}
+
+.text-file-upload-area:hover {
+    border-color: var(--primary-color);
+    background: var(--surface-hover);
+}
+
+.text-upload-zone {
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.text-upload-zone.dragover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    transform: scale(1.02);
+}
+
+.text-upload-zone i {
+    font-size: 2rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.text-upload-zone p {
+    margin: 4px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.text-upload-zone .upload-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.text-file-info {
+    padding: 12px;
+    background: var(--surface-color);
+    border-radius: var(--border-radius-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.text-file-info .file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.text-file-info .file-info i {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.text-file-info .file-info span {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.text-file-info .file-info span:last-child {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.remove-text-file-btn {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+}
+
 /* 图片上传区域 */
 .image-input-section {
     padding: 16px;

@@ -57,6 +57,13 @@ class TextProcessorApp {
         this.textInputWindows = [{
             id: 1,
             element: document.getElementById('inputText1'),
+            textFileInput: document.getElementById('textFileInput1'),
+            textUploadZone: document.getElementById('textUploadZone1'),
+            textFileInfo: document.getElementById('textFileInfo1'),
+            textFileName: document.getElementById('textFileName1'),
+            textFileSize: document.getElementById('textFileSize1'),
+            removeTextFileBtn: document.getElementById('removeTextFileBtn1'),
+            selectedTextFile: null,
             charCount: 0
         }];
 
@@ -213,6 +220,46 @@ class TextProcessorApp {
         const textarea = window.element;
         textarea.addEventListener('input', () => this.updateCharCount());
         textarea.addEventListener('paste', () => this.updateCharCount());
+        
+        // 文本文件上传事件
+        if (window.textUploadZone) {
+            // 点击上传区域触发文件选择
+            window.textUploadZone.addEventListener('click', () => {
+                window.textFileInput.click();
+            });
+
+            // 文件选择事件
+            window.textFileInput.addEventListener('change', (e) => {
+                this.handleTextFileSelect(e.target.files[0], window);
+            });
+
+            // 拖拽事件
+            window.textUploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                window.textUploadZone.classList.add('dragover');
+            });
+
+            window.textUploadZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                window.textUploadZone.classList.remove('dragover');
+            });
+
+            window.textUploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                window.textUploadZone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.handleTextFileSelect(files[0], window);
+                }
+            });
+        }
+
+        // 移除文本文件按钮
+        if (window.removeTextFileBtn) {
+            window.removeTextFileBtn.addEventListener('click', () => {
+                this.removeSelectedTextFile(window);
+            });
+        }
     }
 
     /**
@@ -277,11 +324,30 @@ class TextProcessorApp {
         // 创建新的文本输入窗口HTML
         const windowHTML = `
             <div class="text-input-window-item" data-window-id="${windowId}">
+                <!-- 文本文件上传区域 -->
+                <div class="text-file-upload-area">
+                    <div class="text-upload-zone" id="textUploadZone${windowId}">
+                        <i class="fas fa-file-upload"></i>
+                        <p>点击或拖拽文本文件到此处</p>
+                        <p class="upload-hint">支持 TXT、MD、JSON、CSV 等文本格式，最大 5MB</p>
+                        <input type="file" id="textFileInput${windowId}" accept=".txt,.md,.json,.csv,.log,.xml,.html,.htm,.css,.js,.py,.java,.cpp,.c,.h,.sql,.sh,.bat,.ps1,.yml,.yaml,.toml,.ini,.cfg,.conf,.properties,.csv,.tsv,.xml,.html,.htm,.css,.js,.py,.java,.cpp,.c,.h,.sql,.sh,.bat,.ps1,.yml,.yaml,.toml,.ini,.cfg,.conf,.properties" style="display: none;">
+                    </div>
+                    <div class="text-file-info" id="textFileInfo${windowId}" style="display: none;">
+                        <div class="file-info">
+                            <i class="fas fa-file-alt"></i>
+                            <span id="textFileName${windowId}"></span>
+                            <span id="textFileSize${windowId}"></span>
+                        </div>
+                        <button class="btn btn-sm btn-outline remove-text-file-btn" id="removeTextFileBtn${windowId}">
+                            <i class="fas fa-times"></i> 移除文件
+                        </button>
+                    </div>
+                </div>
                 <div class="textarea-container">
                     <textarea
                         id="inputText${windowId}"
                         class="input-textarea"
-                        placeholder="请在此处粘贴或输入要处理的文本..."
+                        placeholder="请在此处粘贴或输入要处理的文本，或上传文本文件..."
                         rows="12"
                         style="resize: vertical; max-height: 800px; min-height: 200px;"
                     ></textarea>
@@ -303,6 +369,13 @@ class TextProcessorApp {
         const newWindow = {
             id: windowId,
             element: document.getElementById(`inputText${windowId}`),
+            textFileInput: document.getElementById(`textFileInput${windowId}`),
+            textUploadZone: document.getElementById(`textUploadZone${windowId}`),
+            textFileInfo: document.getElementById(`textFileInfo${windowId}`),
+            textFileName: document.getElementById(`textFileName${windowId}`),
+            textFileSize: document.getElementById(`textFileSize${windowId}`),
+            removeTextFileBtn: document.getElementById(`removeTextFileBtn${windowId}`),
+            selectedTextFile: null,
             charCount: 0
         };
         
@@ -436,13 +509,13 @@ class TextProcessorApp {
     }
 
     /**
-     * 重新编号输入窗口
+     * 重新编号文本输入窗口
      */
-    renumberInputWindows() {
-        // 重新编号所有输入窗口，从1开始
-        this.inputWindows.forEach((window, index) => {
+    renumberTextInputWindows() {
+        // 重新编号所有文本输入窗口，从1开始
+        this.textInputWindows.forEach((window, index) => {
             const newId = index + 1;
-            const windowElement = document.querySelector(`[data-window-id="${window.id}"]`);
+            const windowElement = document.querySelector(`.text-input-window-item[data-window-id="${window.id}"]`);
             
             if (windowElement) {
                 // 更新DOM元素的ID和属性
@@ -461,16 +534,60 @@ class TextProcessorApp {
                     }
                 }
                 
-                // 更新窗口对象的ID
+                // 更新文本文件上传相关元素的ID
+                const textFileInput = windowElement.querySelector('input[type="file"]');
+                const textUploadZone = windowElement.querySelector('.text-upload-zone');
+                const textFileInfo = windowElement.querySelector('.text-file-info');
+                const textFileName = windowElement.querySelector('#textFileName' + window.id);
+                const textFileSize = windowElement.querySelector('#textFileSize' + window.id);
+                const removeTextFileBtn = windowElement.querySelector('#removeTextFileBtn' + window.id);
+                
+                if (textFileInput) {
+                    textFileInput.id = `textFileInput${newId}`;
+                }
+                if (textUploadZone) {
+                    textUploadZone.id = `textUploadZone${newId}`;
+                }
+                if (textFileInfo) {
+                    textFileInfo.id = `textFileInfo${newId}`;
+                }
+                if (textFileName) {
+                    textFileName.id = `textFileName${newId}`;
+                }
+                if (textFileSize) {
+                    textFileSize.id = `textFileSize${newId}`;
+                }
+                if (removeTextFileBtn) {
+                    removeTextFileBtn.id = `removeTextFileBtn${newId}`;
+                }
+                
+                // 更新窗口对象的ID和引用
                 window.id = newId;
+                window.element = document.getElementById(`inputText${newId}`);
+                window.textFileInput = document.getElementById(`textFileInput${newId}`);
+                window.textUploadZone = document.getElementById(`textUploadZone${newId}`);
+                window.textFileInfo = document.getElementById(`textFileInfo${newId}`);
+                window.textFileName = document.getElementById(`textFileName${newId}`);
+                window.textFileSize = document.getElementById(`textFileSize${newId}`);
+                window.removeTextFileBtn = document.getElementById(`removeTextFileBtn${newId}`);
             }
         });
         
-        // 重置输入窗口ID计数器
-        this.nextInputWindowId = this.inputWindows.length + 1;
+        // 重置文本输入窗口ID计数器
+        this.nextTextInputWindowId = this.textInputWindows.length + 1;
         
-        // 重新绑定所有输入窗口的事件
-        this.rebindInputEvents();
+        // 重新绑定所有文本输入窗口的事件
+        this.rebindTextInputEvents();
+    }
+
+    /**
+     * 重新绑定所有文本输入窗口的事件
+     */
+    rebindTextInputEvents() {
+        // 为所有文本输入窗口重新绑定事件
+        this.textInputWindows.forEach(window => {
+            this.bindSingleTextInputEvents(window);
+        });
     }
 
     /**
@@ -1397,6 +1514,11 @@ class TextProcessorApp {
             // 清空所有选中的图片
             this.imageInputWindows.forEach(window => {
                 this.removeSelectedImage(window);
+            });
+
+            // 清空所有选中的文本文件
+            this.textInputWindows.forEach(window => {
+                this.removeSelectedTextFile(window);
             });
 
             // 重置当前结果
@@ -4584,6 +4706,115 @@ ${rulesText}`;
     }
 
     // ==================== 图片上传和OCR相关方法 ====================
+
+    /**
+     * 处理文本文件选择
+     */
+    handleTextFileSelect(file, window) {
+        if (!file) return;
+
+        // 验证文件类型
+        const supportedExtensions = [
+            '.txt', '.md', '.json', '.csv', '.log', '.xml', '.html', '.htm', '.css', '.js',
+            '.py', '.java', '.cpp', '.c', '.h', '.sql', '.sh', '.bat', '.ps1',
+            '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.properties',
+            '.tsv', '.xml', '.html', '.htm', '.css', '.js', '.py', '.java', '.cpp', '.c', '.h', '.sql', '.sh', '.bat', '.ps1',
+            '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.properties'
+        ];
+        
+        const fileName = file.name.toLowerCase();
+        const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (!isSupported) {
+            this.showError('不支持的文件格式。支持的格式: TXT、MD、JSON、CSV、LOG、XML、HTML、CSS、JS、PY、JAVA、CPP、SQL、SH、BAT、PS1、YML、YAML、TOML、INI、CFG、CONF、PROPERTIES 等文本格式');
+            return;
+        }
+
+        // 验证文件大小（5MB）
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            this.showError('文件过大。最大支持: 5MB');
+            return;
+        }
+
+        // 读取文本文件内容
+        this.readTextFile(file, window);
+    }
+
+    /**
+     * 读取文本文件内容
+     */
+    readTextFile(file, window) {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            try {
+                const content = e.target.result;
+                
+                // 更新文本区域内容
+                window.element.value = content;
+                window.selectedTextFile = file;
+                
+                // 显示文件信息
+                this.showTextFileInfo(file, window);
+                
+                // 更新字符计数
+                this.updateCharCount();
+                
+                this.showSuccess(`已加载文本文件: ${file.name}`);
+                
+            } catch (error) {
+                console.error('读取文本文件失败:', error);
+                this.showError('读取文本文件失败，请检查文件格式');
+            }
+        };
+        
+        reader.onerror = () => {
+            this.showError('读取文件失败');
+        };
+        
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    /**
+     * 显示文本文件信息
+     */
+    showTextFileInfo(file, window) {
+        if (!window.textUploadZone || !window.textFileInfo) return;
+
+        // 隐藏上传区域，显示文件信息
+        window.textUploadZone.style.display = 'none';
+        window.textFileInfo.style.display = 'flex';
+
+        // 更新文件信息
+        if (window.textFileName) {
+            window.textFileName.textContent = `文件名: ${file.name}`;
+        }
+        if (window.textFileSize) {
+            window.textFileSize.textContent = `大小: ${this.formatFileSize(file.size)}`;
+        }
+    }
+
+    /**
+     * 移除选中的文本文件
+     */
+    removeSelectedTextFile(window) {
+        if (!window.textUploadZone || !window.textFileInfo) return;
+
+        // 清除文件输入
+        if (window.textFileInput) {
+            window.textFileInput.value = '';
+        }
+
+        // 隐藏文件信息，显示上传区域
+        window.textFileInfo.style.display = 'none';
+        window.textUploadZone.style.display = 'block';
+
+        // 清除选中的文件
+        window.selectedTextFile = null;
+        
+        this.showSuccess('已移除文本文件');
+    }
 
     /**
      * 处理图片文件选择
